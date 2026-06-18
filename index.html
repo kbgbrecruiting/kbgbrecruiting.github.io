@@ -1254,23 +1254,33 @@ async function handleJDFile(file) {
 function renderScorecard(busquedaId, existingScorecard) {
   const b=App.data.busquedas.find(x=>x.id===busquedaId)||{};
   const mustHaves=tryJSON(b.must_haves,[]);
-  if(!mustHaves.length) return '';
+  const niceToHaves=tryJSON(b.nice_to_haves,[]);
+  const redFlags=tryJSON(b.red_flags,[]);
+  const allItems=[
+    ...mustHaves.map(x=>({label:x,tipo:'must'})),
+    ...niceToHaves.map(x=>({label:x,tipo:'nice'})),
+    ...redFlags.map(x=>({label:x,tipo:'flag'}))
+  ];
+  if(!allItems.length) return '';
   const sc=existingScorecard||{};
+  const tipoLabel={'must':'✅ Must-have','nice':'⭐ Nice to have','flag':'🚩 Red flag'};
+  let lastTipo='';
   return `
   <div class="border border-gray-200 rounded-xl overflow-hidden">
     <div class="bg-gray-50 px-4 py-2.5 border-b border-gray-100">
-      <p class="text-xs font-semibold text-gray-700">Scorecard — Must-haves</p>
+      <p class="text-xs font-semibold text-gray-700">Scorecard</p>
     </div>
     <div class="divide-y divide-gray-100">
-      ${mustHaves.map((mh,i)=>{
-        const val=sc[mh]||'';
-        return `
+      ${allItems.map((item)=>{
+        const val=sc[item.label]||'';
+        const header=item.tipo!==lastTipo?(lastTipo=item.tipo,`<div class="px-4 py-1.5 bg-gray-50 border-b border-gray-100"><p class="text-xs font-semibold text-gray-400">${tipoLabel[item.tipo]}</p></div>`):'';
+        return `${header}
         <div class="flex items-center justify-between px-4 py-2.5 gap-3">
-          <p class="text-xs text-gray-700 flex-1">${mh}</p>
+          <p class="text-xs text-gray-700 flex-1">${item.label}</p>
           <div class="flex gap-1 flex-shrink-0">
-            <button type="button" onclick="setScore(this,'${mh.replace(/'/g,"\\'")}','si')" data-key="${i}" class="score-btn ${val==='si'?'active-si':''} text-xs px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-green-50">✓ Sí</button>
-            <button type="button" onclick="setScore(this,'${mh.replace(/'/g,"\\'")}','quizas')" data-key="${i}" class="score-btn ${val==='quizas'?'active-q':''} text-xs px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-yellow-50">? Quizás</button>
-            <button type="button" onclick="setScore(this,'${mh.replace(/'/g,"\\'")}','no')" data-key="${i}" class="score-btn ${val==='no'?'active-no':''} text-xs px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-red-50">✗ No</button>
+            <button type="button" onclick="setScore(this,'${item.label.replace(/'/g,"\\'")}','si')" class="score-btn ${val==='si'?'active-si':''} text-xs px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-green-50">✓ Sí</button>
+            <button type="button" onclick="setScore(this,'${item.label.replace(/'/g,"\\'")}','quizas')" class="score-btn ${val==='quizas'?'active-q':''} text-xs px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-yellow-50">? Quizás</button>
+            <button type="button" onclick="setScore(this,'${item.label.replace(/'/g,"\\'")}','no')" class="score-btn ${val==='no'?'active-no':''} text-xs px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-red-50">✗ No</button>
           </div>
         </div>`;
       }).join('')}
