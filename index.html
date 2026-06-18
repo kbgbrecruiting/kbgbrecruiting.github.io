@@ -1,0 +1,2595 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGB Recruiting</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { font-family: 'Inter', sans-serif; }
+  .drag-over { outline: 2px dashed #6366f1; background: #eef2ff; }
+  .dragging { opacity: 0.4; }
+  .fade-in { animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .kanban-col { min-height: 200px; }
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .score-btn { transition: all 0.1s; }
+  .score-btn.active-si  { background:#dcfce7; color:#15803d; border-color:#86efac; }
+  .score-btn.active-no  { background:#fee2e2; color:#b91c1c; border-color:#fca5a5; }
+  .score-btn.active-q   { background:#fef9c3; color:#92400e; border-color:#fde68a; }
+</style>
+</head>
+<body class="bg-white text-gray-900">
+<div id="root"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONSTANTS & STATE
+// ═══════════════════════════════════════════════════════════════
+const WEBHOOK = 'https://script.google.com/macros/s/AKfycbzj2Zq3GtWCx_hZ-MduYa3lERAjxyXwztXJJQmnxeF8Z-MUb0eRu2oGEqpfXWR1ca6kBw/exec';
+
+const ETAPAS = ['Interesado a contactar','Enviado al cliente','Presentado','1ra entrevista cliente','2da entrevista cliente','Oferta','Contratado'];
+const ETAPAS_EXTRA = ['On hold','Descartado'];
+const TODAS_ETAPAS = [...ETAPAS, ...ETAPAS_EXTRA];
+
+const ETAPA_TOP = {
+  'Contratado':'border-t-green-500','Oferta':'border-t-amber-500',
+  'Descartado':'border-t-red-400','On hold':'border-t-yellow-400',
+};
+
+const App = {
+  view: 'landing',
+  user: null,
+  section: 'pipeline',
+  data: {
+    leads:[], busquedas:[], candidatos:[], kpis:null, config:{},
+    busquedaActiva:null, equipoNombres:[], vistaPersona:null, recruiters:[],
+  },
+  loading: false,
+  toast: null,
+  modal: null,
+  // Scorecard en memoria mientras el usuario edita (antes de guardar)
+  scorecardDraft: {},
+};
+
+// ═══════════════════════════════════════════════════════════════
+// API
+// ═══════════════════════════════════════════════════════════════
+async function apiGet(params) {
+  const qs = new URLSearchParams({ ...params, pin: App.user?.pin || '' }).toString();
+  const r = await fetch(`${WEBHOOK}?${qs}`, { credentials:'omit', redirect:'follow' });
+  return r.json();
+}
+async function apiPost(body) {
+  const r = await fetch(WEBHOOK, {
+    method:'POST', credentials:'omit', redirect:'follow',
+    headers:{ 'Content-Type':'text/plain' },
+    body: JSON.stringify({ ...body, pin: App.user?.pin || '' }),
+  });
+  return r.json();
+}
+async function apiPostPublic(body) {
+  const r = await fetch(WEBHOOK, {
+    method:'POST', credentials:'omit', redirect:'follow',
+    headers:{ 'Content-Type':'text/plain' },
+    body: JSON.stringify(body),
+  });
+  return r.json();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+function tryJSON(str, fallback) { try { return JSON.parse(str); } catch { return fallback; } }
+function toArr(str) { if (!str) return []; const p = tryJSON(str, null); if (Array.isArray(p)) return p; return String(str).split(/\n|•/).map(s=>s.trim()).filter(Boolean); }
+function fmtMoney(n, moneda='') { if (!n && n!==0) return '—'; return (moneda?moneda+' ':'')+Number(n).toLocaleString('es-AR'); }
+function fmtDate(s) { if(!s) return '—'; return new Date(s).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+function badge(t,c) { return `<span class="inline-block px-2 py-0.5 rounded text-xs font-medium ${c}">${t}</span>`; }
+function estadoBadge(e) {
+  const m={activa:'bg-green-100 text-green-700',pausada:'bg-yellow-100 text-yellow-700',cerrada:'bg-blue-100 text-blue-700',perdida:'bg-red-100 text-red-700',pendiente:'bg-amber-100 text-amber-700',aprobado:'bg-green-100 text-green-700',descartado:'bg-red-100 text-red-700'};
+  return badge(e, m[e]||'bg-gray-100 text-gray-700');
+}
+function prioridadBadge(p) {
+  const m={alta:'bg-red-100 text-red-700',media:'bg-yellow-100 text-yellow-700',baja:'bg-slate-100 text-slate-600'};
+  return badge(p, m[p]||'bg-gray-100 text-gray-600');
+}
+function inputCls() { return 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900'; }
+function selectCls() { return 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white'; }
+function generateId(p) { return p+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,6); }
+
+function showToast(msg, type='ok') {
+  App.toast = {msg,type}; render();
+  setTimeout(()=>{ App.toast=null; render(); },3500);
+}
+function closeModal() { App.modal=null; App.scorecardDraft={}; App._cvPdfUrl=null; App._cvScore=null; render(); }
+function openModal(type, payload) { App.modal={type,payload}; render(); }
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH & ROUTING
+// ═══════════════════════════════════════════════════════════════
+async function doLogin(pin) {
+  if (!pin||pin.trim()==='') { showToast('Ingresá el PIN','error'); return; }
+  App.loading=true; render();
+  try {
+    const url=`${WEBHOOK}?action=auth&pin=${encodeURIComponent(pin.trim())}`;
+    const r=await fetch(url,{credentials:'omit',redirect:'follow'});
+    const text=await r.text();
+    let j; try { j=JSON.parse(text); } catch(pe) { showToast('Respuesta inválida: '+text.slice(0,60),'error'); App.loading=false; render(); return; }
+    if (j.status==='ok') {
+      App.user={...j.data,pin:pin.trim()};
+      // Load recruiters list once at login
+      apiGet({action:'recruiters'}).then(r=>{ App.data.recruiters=r.data||[]; });
+      navigate('panel','pipeline');
+    }
+    else { showToast('PIN incorrecto','error'); App.loading=false; render(); }
+  } catch(e) { showToast('Error de red: '+e.message,'error'); App.loading=false; render(); }
+}
+function doLogout() {
+  App.user=null;
+  App.data={leads:[],busquedas:[],candidatos:[],kpis:null,config:{},busquedaActiva:null,equipoNombres:[],vistaPersona:null,recruiters:[]};
+  navigate('landing');
+}
+function navigate(view, section) {
+  App.view=view; if(section) App.section=section; render();
+  if(view==='panel') loadSection(App.section);
+}
+async function loadSection(section) {
+  App.section=section; App.loading=true; render();
+  try {
+    const rd = await apiPost({action:'get_data', data:{}});
+    App.data.busquedas = rd.data?.busquedas || [];
+    App.data.candidatos = rd.data?.candidatos || [];
+    if (!App.data.busquedaActiva && App.data.busquedas.length) App.data.busquedaActiva=App.data.busquedas[0].id;
+  } catch(e) { showToast('Error cargando datos: '+e.message,'error'); }
+  App.loading=false; render();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER ROOT
+// ═══════════════════════════════════════════════════════════════
+function render() {
+  let html='';
+  if (App.toast) {
+    const tc=App.toast.type==='error'?'bg-red-600':'bg-gray-900';
+    html+=`<div class="fixed top-4 right-4 z-50 ${tc} text-white px-4 py-3 rounded-lg shadow-lg text-sm fade-in max-w-xs">${App.toast.msg}</div>`;
+  }
+  if (App.modal) html+=renderModal();
+  if (App.view==='landing') html+=renderLanding();
+  else if (App.view==='login') html+=renderLogin();
+  else if (App.view==='panel') html+=renderPanel();
+  document.getElementById('root').innerHTML=html;
+  attachEvents();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LANDING
+// ═══════════════════════════════════════════════════════════════
+function renderLanding() {
+  return `
+  <div class="min-h-screen flex flex-col">
+    <header class="bg-gray-900 text-white px-6 py-4 flex items-center justify-between">
+      <span class="font-bold text-lg tracking-tight">AGB Recruiting</span>
+      <button onclick="navigate('login')" class="text-sm bg-white text-gray-900 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition">Acceso privado</button>
+    </header>
+
+    <section class="bg-gray-900 text-white px-6 pt-16 pb-20 md:pt-24 md:pb-28">
+      <div class="max-w-3xl mx-auto flex flex-col md:flex-row items-center gap-10">
+        <div class="w-36 h-36 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-16 h-16"><path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd"/></svg>
+        </div>
+        <div>
+          <h1 class="text-3xl md:text-4xl font-extrabold leading-tight mb-3">Agustín González Benegas</h1>
+          <p class="text-xl text-gray-300 font-medium mb-2">Reclutador</p>
+          <p class="text-gray-400 text-lg leading-relaxed">Cierro vacantes con foco, seguimiento personalizado y sin intermediarios innecesarios. Cada búsqueda la trato como si fuera la única.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="px-6 py-16 bg-white">
+      <div class="max-w-3xl mx-auto">
+        <h2 class="text-2xl font-bold mb-8 text-gray-900">Cómo trabajo</h2>
+        <div class="grid md:grid-cols-2 gap-6">
+          ${[['🎯','Entendimiento profundo','Me siento con vos a entender el rol antes de arrancar — no mando perfiles a ciegas.'],['⚡','Velocidad sin sacrificar calidad','Proceso ágil y comunicación constante. Sabés en todo momento cómo está la búsqueda.'],['🤝','Trato directo','Hablás conmigo, no con un equipo de coordinadores. Una sola persona de punta a punta.'],['✅','Garantía de reposición','Si el candidato no supera el período de prueba, repongo sin costo adicional.']].map(([i,t,d])=>`
+            <div class="flex gap-4 p-5 rounded-xl border border-gray-100 bg-gray-50">
+              <span class="text-2xl">${i}</span>
+              <div><p class="font-semibold text-gray-900 mb-1">${t}</p><p class="text-gray-500 text-sm leading-relaxed">${d}</p></div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </section>
+
+    <section class="px-6 py-16 bg-gray-50" id="contacto">
+      <div class="max-w-2xl mx-auto">
+        <h2 class="text-2xl font-bold mb-2 text-gray-900">Contanos sobre tu búsqueda</h2>
+        <p class="text-gray-500 mb-8 text-sm">Completá el formulario y te contacto en menos de 24 horas hábiles.</p>
+        <form id="leadForm" class="space-y-5" onsubmit="submitLead(event)">
+          <div class="grid md:grid-cols-2 gap-5">
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Empresa *</label><input name="empresa" required class="${inputCls()}"></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Tu nombre *</label><input name="contacto_nombre" required class="${inputCls()}"></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Email *</label><input name="contacto_email" type="email" required class="${inputCls()}"></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label><input name="contacto_telefono" class="${inputCls()}"></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Puesto a cubrir *</label><input name="puesto" required class="${inputCls()}"></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Seniority</label>
+              <select name="seniority" class="${selectCls()}"><option value="">Seleccioná</option><option>Junior</option><option>Semi-senior</option><option>Senior</option><option>Lead</option><option>Manager</option><option>Director</option></select>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-3">
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Moneda</label><select name="moneda" class="${selectCls()}"><option>ARS</option><option>USD</option></select></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Banda mínima</label><input name="banda_salarial_min" type="number" class="${inputCls()}"></div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1">Banda máxima</label><input name="banda_salarial_max" type="number" class="${inputCls()}"></div>
+          </div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Modalidad</label>
+            <div class="flex gap-4">${['Presencial','Híbrido','Remoto'].map(m=>`<label class="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="modalidad" value="${m.toLowerCase()}" class="accent-gray-900"> ${m}</label>`).join('')}</div>
+          </div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Lo más importante del rol</label><textarea name="detalle_rol" rows="3" class="${inputCls()} resize-none" placeholder="Skills clave, cultura, deal-breakers, etc."></textarea></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Link a la job description</label><input name="jd_link" type="url" placeholder="https://" class="${inputCls()}"></div>
+          <button type="submit" id="leadSubmitBtn" class="w-full bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition text-sm">Enviar consulta</button>
+        </form>
+      </div>
+    </section>
+    <footer class="bg-gray-900 text-gray-400 text-sm text-center py-6 px-4">© 2025 Agustín González Benegas · <a href="#contacto" class="underline hover:text-white">Contacto</a></footer>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════════════════════
+function renderLogin() {
+  return `
+  <div class="min-h-screen bg-gray-900 flex flex-col items-center justify-center px-4">
+    <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-xs">
+      <div class="text-center mb-6">
+        <div class="w-12 h-12 bg-gray-900 rounded-xl flex items-center justify-center mx-auto mb-3">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        </div>
+        <h2 class="text-xl font-bold text-gray-900">Acceso privado</h2>
+        <p class="text-gray-400 text-sm mt-1">Ingresá tu PIN</p>
+      </div>
+      <input id="pinInput" type="password" inputmode="numeric" maxlength="6"
+        class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-center text-2xl tracking-widest focus:outline-none focus:border-gray-900 font-mono"
+        placeholder="••••" onkeydown="if(event.key==='Enter') doLogin(this.value)">
+      <button onclick="doLogin(document.getElementById('pinInput').value)"
+        class="w-full mt-4 bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-700 transition">
+        ${App.loading ? 'Verificando...' : 'Entrar'}
+      </button>
+      <button onclick="navigate('landing')" class="w-full mt-3 text-gray-400 text-sm hover:text-gray-600">← Volver</button>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PANEL SHELL
+// ═══════════════════════════════════════════════════════════════
+function renderPanel() {
+  const isAdmin=App.user?.rol==='admin';
+  const sections=[
+    {id:'dashboard',label:'Dashboard',icon:'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'},
+    ...(isAdmin?[{id:'leads',label:'Leads',icon:'M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4'}]:[]),
+    {id:'busquedas',label:'Búsquedas',icon:'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'},
+    {id:'pipeline',label:'Pipeline',icon:'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2'},
+    {id:'kpis',label:'KPIs',icon:'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'},
+    {id:'ingresos',label:'Ingresos',icon:'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'},
+    {id:'historial',label:'Historial',icon:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'},
+  ];
+  const leadsCount=isAdmin?App.data.leads.filter(l=>l.estado==='pendiente').length:0;
+  return `
+  <div class="min-h-screen flex flex-col">
+    <header class="bg-gray-900 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+      <span class="font-bold text-sm tracking-tight">AGB Recruiting</span>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-gray-400">${App.user?.nombre||'—'} · ${App.user?.rol||'recruiter'}</span>
+        <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-white transition">Salir</button>
+      </div>
+    </header>
+    <div class="flex flex-1">
+      <nav class="hidden md:flex flex-col w-52 bg-gray-50 border-r border-gray-200 py-4 gap-1 px-2 sticky top-12 h-[calc(100vh-48px)]">
+        ${sections.map(s=>`
+          <button onclick="loadSection('${s.id}')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition text-left ${App.section===s.id?'bg-gray-900 text-white':'text-gray-600 hover:bg-gray-200'}">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${s.icon}"/></svg>
+            ${s.label}
+            ${s.id==='leads'&&leadsCount>0?`<span class="ml-auto bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded-full">${leadsCount}</span>`:''}
+          </button>`).join('')}
+      </nav>
+      <main class="flex-1 overflow-auto">
+        ${App.loading?`<div class="flex items-center justify-center py-24 text-gray-400 text-sm">Cargando...</div>`:renderSection()}
+      </main>
+    </div>
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex z-30">
+      ${sections.map(s=>`
+        <button onclick="loadSection('${s.id}')" class="flex-1 flex flex-col items-center py-2 gap-0.5 ${App.section===s.id?'text-gray-900':'text-gray-400'}">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${s.icon}"/></svg>
+          <span class="text-[10px]">${s.label}</span>
+        </button>`).join('')}
+    </nav>
+  </div>`;
+}
+
+function renderSection() {
+  switch(App.section) {
+    case 'dashboard':  return renderDashboard();
+    case 'leads':      return renderLeads();
+    case 'busquedas':  return renderBusquedas();
+    case 'pipeline':   return renderPipeline();
+    case 'kpis':       return renderKpis();
+    case 'ingresos':   return renderIngresos();
+    case 'historial':  return renderHistorial();
+    default:           return '<div class="p-8 text-gray-400">Sección no encontrada</div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+function renderDashboard() {
+  const k=App.data.kpis, b=App.data.busquedas, isAdmin=App.user.rol==='admin';
+  if (!k) return `<div class="p-6 text-gray-400 text-sm">Sin datos</div>`;
+  const sinActividad=k.sin_actividad_7dias||[];
+  return `
+  <div class="p-6 max-w-4xl">
+    <div class="flex items-start justify-between mb-6 flex-wrap gap-3">
+      <h2 class="text-xl font-bold">Dashboard</h2>
+      ${isAdmin?selectorEquipoHTML():''}
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      ${statCard('Búsquedas activas',k.busquedas_activas??'—','text-indigo-600')}
+      ${statCard('Contratados (mes)',k.contratados_mes??'—','text-green-600')}
+      ${statCard('Revenue del mes',k.ingreso_cobrado_mes!=null?fmtMoney(k.ingreso_cobrado_mes):'—','text-gray-900')}
+      ${statCard('Pipeline ponderado',k.ingreso_pipeline_ponderado!=null?fmtMoney(k.ingreso_pipeline_ponderado):'—','text-blue-600')}
+    </div>
+    ${sinActividad.length?`
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+        <p class="text-sm font-semibold text-amber-800 mb-2">⚠️ Sin actividad hace +7 días (${sinActividad.length})</p>
+        ${sinActividad.map(x=>`<div class="text-sm text-amber-700">${x.cliente} · ${x.puesto}</div>`).join('')}
+      </div>`:''}
+    <div class="bg-gray-50 rounded-xl p-5">
+      <p class="text-sm font-semibold text-gray-700 mb-3">Búsquedas activas</p>
+      ${b.filter(x=>x.estado==='activa').length===0?'<p class="text-sm text-gray-400">No hay búsquedas activas</p>':
+        b.filter(x=>x.estado==='activa').map(x=>`
+          <div class="flex items-center justify-between text-sm bg-white rounded-lg px-4 py-2.5 border border-gray-100 mb-2 cursor-pointer hover:shadow-sm" onclick="irAPipeline('${x.id}')">
+            <div><span class="font-medium">${x.cliente}</span><span class="text-gray-400 mx-1">·</span><span class="text-gray-600">${x.puesto}</span></div>
+            <div class="flex items-center gap-2">${prioridadBadge(x.prioridad)}<span class="text-xs text-gray-400">${x.recruiter_asignado||'—'}</span></div>
+          </div>`).join('')}
+    </div>
+  </div>`;
+}
+function statCard(label,value,valueClass) {
+  return `<div class="bg-white border border-gray-200 rounded-xl p-4"><p class="text-xs text-gray-500 mb-1">${label}</p><p class="text-2xl font-bold ${valueClass}">${value}</p></div>`;
+}
+function selectorEquipoHTML() {
+  return `<div class="flex items-center gap-2 flex-wrap">
+    <span class="text-xs text-gray-500">Vista:</span>
+    <button onclick="cambiarVista(null)" class="text-xs px-3 py-1 rounded-full border ${!App.data.vistaPersona?'bg-gray-900 text-white border-gray-900':'border-gray-300 text-gray-600 hover:border-gray-500'}">Equipo</button>
+    ${(App.data.recruiters||[]).map(r=>`<button onclick="cambiarVista('${r.nombre}')" class="text-xs px-3 py-1 rounded-full border ${App.data.vistaPersona===r.nombre?'bg-gray-900 text-white border-gray-900':'border-gray-300 text-gray-600 hover:border-gray-500'}">${r.nombre}</button>`).join('')}
+  </div>`;
+}
+async function cambiarVista(persona) { App.data.vistaPersona=persona; await loadSection(App.section); }
+function irAPipeline(bid) { App.data.busquedaActiva=bid; loadSection('pipeline'); }
+
+// ═══════════════════════════════════════════════════════════════
+// LEADS
+// ═══════════════════════════════════════════════════════════════
+function renderLeads() {
+  const leads=App.data.leads;
+  const pend=leads.filter(l=>l.estado==='pendiente'), resto=leads.filter(l=>l.estado!=='pendiente');
+  return `
+  <div class="p-6 max-w-4xl">
+    <h2 class="text-xl font-bold mb-6">Bandeja de Leads</h2>
+    ${pend.length===0?'<div class="text-sm text-gray-400 bg-gray-50 rounded-xl p-6 text-center">No hay leads pendientes</div>':''}
+    ${pend.map(l=>renderLeadCard(l,true)).join('')}
+    ${resto.length?`<details class="mt-8"><summary class="cursor-pointer text-sm text-gray-500 font-medium mb-3">Ver procesados (${resto.length})</summary><div class="mt-3 space-y-3 opacity-70">${resto.map(l=>renderLeadCard(l,false)).join('')}</div></details>`:''}
+  </div>`;
+}
+function renderLeadCard(l,showActions) {
+  return `
+  <div class="bg-white border border-gray-200 rounded-xl p-5 mb-3">
+    <div class="flex items-start justify-between gap-3 mb-3 flex-wrap">
+      <div><span class="font-semibold">${l.empresa}</span><span class="text-gray-400 mx-2">·</span><span class="text-gray-700">${l.puesto}</span>${l.seniority?`<span class="text-gray-400 mx-1">·</span><span class="text-gray-500 text-sm">${l.seniority}</span>`:''}</div>
+      <div class="flex items-center gap-2 flex-shrink-0">${estadoBadge(l.estado)}<span class="text-xs text-gray-400">${fmtDate(l.fecha_recibido)}</span></div>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-gray-600 mb-3">
+      <span>👤 ${l.contacto_nombre||'—'}</span><span>✉️ ${l.contacto_email||'—'}</span>
+      ${l.contacto_telefono?`<span>📞 ${l.contacto_telefono}</span>`:''}
+      <span>💰 ${l.moneda||''} ${fmtMoney(l.banda_salarial_min)}–${fmtMoney(l.banda_salarial_max)}</span>
+      <span>🏢 ${l.modalidad||'—'}</span>
+      ${l.jd_link?`<a href="${l.jd_link}" target="_blank" class="text-indigo-600 hover:underline">📄 Ver JD</a>`:''}
+    </div>
+    ${l.detalle_rol?`<p class="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2 mb-3">${l.detalle_rol}</p>`:''}
+    ${showActions?`<div class="flex gap-2 mt-3">
+      <button onclick="aprobarLead('${l.id}')" class="px-4 py-2 bg-green-600 text-white text-sm rounded-lg font-medium hover:bg-green-700 transition">✓ Aprobar y crear búsqueda</button>
+      <button onclick="descartarLead('${l.id}')" class="px-4 py-2 bg-white text-red-600 border border-red-200 text-sm rounded-lg font-medium hover:bg-red-50 transition">✕ Descartar</button>
+    </div>`:''}
+  </div>`;
+}
+async function descartarLead(id) {
+  if (!confirm('¿Descartar este lead?')) return;
+  const r=await apiPost({action:'descartar_lead',data:{lead_id:id}});
+  if(r.status==='ok'){showToast('Lead descartado');await loadSection('leads');}else showToast(r.message||'Error','error');
+}
+function aprobarLead(id) { openModal('nueva_busqueda',{lead:App.data.leads.find(x=>x.id===id)}); }
+
+// ═══════════════════════════════════════════════════════════════
+// BÚSQUEDAS
+// ═══════════════════════════════════════════════════════════════
+function renderBusquedas() {
+  const isAdmin=App.user.rol==='admin', b=App.data.busquedas;
+  const grupos={activa:[],pausada:[],cerrada:[],perdida:[]};
+  b.forEach(x=>(grupos[x.estado]||[]).push(x));
+  return `
+  <div class="p-6 max-w-5xl">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-bold">Búsquedas</h2>
+      <button onclick="openModal('nueva_busqueda',{})" class="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition">+ Nueva búsqueda</button>
+    </div>
+    ${Object.entries(grupos).map(([estado,items])=>items.length?`
+      <div class="mb-8">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">${estado} (${items.length})</p>
+        ${items.map(x=>renderBusquedaRow(x)).join('')}
+      </div>`:'' ).join('')}
+    ${b.length===0?'<div class="text-sm text-gray-400 text-center py-12">No hay búsquedas</div>':''}
+  </div>`;
+}
+function renderBusquedaRow(b) {
+  const mustHaves=tryJSON(b.must_haves,[]);
+  const briefingOk=mustHaves.length>0||b.contexto;
+  const diasSinActividad=b.fecha_ultima_actividad?Math.floor((new Date()-new Date(b.fecha_ultima_actividad))/86400000):null;
+  const fee=b.fee_tipo==='%'?`${b.fee_valor}% sobre ${fmtMoney(b.fee_base,b.moneda)}`:`${fmtMoney(b.fee_valor,b.moneda)} fijo`;
+  return `
+  <div class="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition mb-3">
+    <div class="flex items-start justify-between gap-3 flex-wrap">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap mb-1">
+          <span class="font-semibold">${b.cliente}</span><span class="text-gray-400">·</span>
+          <span class="text-gray-700">${b.puesto}</span>${b.seniority?`<span class="text-gray-400 text-sm">${b.seniority}</span>`:''}
+        </div>
+        <div class="flex items-center gap-2 flex-wrap text-xs text-gray-500">
+          ${estadoBadge(b.estado)}${prioridadBadge(b.prioridad)}
+          <span>${b.moneda||''} ${fmtMoney(b.banda_salarial_min)}–${fmtMoney(b.banda_salarial_max)}</span>
+          <span>${b.modalidad||''}</span><span>Fee: ${fee}</span>
+          <span>👤 ${b.recruiter_asignado||'—'}</span>
+          ${diasSinActividad!==null?`<span class="${diasSinActividad>7?'text-amber-500 font-medium':''}">⏱ ${diasSinActividad}d sin actividad</span>`:''}
+        </div>
+      </div>
+      <div class="flex items-center gap-3 flex-shrink-0">
+        ${!briefingOk?`<span class="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded-lg">Sin briefing</span>`:`<span class="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded-lg">✓ Briefing</span>`}
+        ${b.jd_link?`<a href="${b.jd_link}" target="_blank" class="text-xs text-indigo-600 hover:underline">JD ↗</a>`:''}
+        <button onclick="irAPipeline('${b.id}')" class="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 transition">Pipeline →</button>
+        ${App.user.rol==='admin'?`<button onclick="openModal('editar_busqueda','${b.id}')" class="text-xs text-gray-500 hover:text-gray-900">Editar</button>`:''}
+        ${App.user.rol==='admin'?`<button onclick="openModal('confirmar_eliminar_busqueda','${b.id}')" class="text-xs text-red-400 hover:text-red-600">Eliminar</button>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PIPELINE + BRIEFING
+// ═══════════════════════════════════════════════════════════════
+function renderPipeline() {
+  const busquedas=App.data.busquedas;
+  if (!busquedas.length) return `<div class="p-6 text-gray-400 text-sm">No hay búsquedas disponibles</div>`;
+  const bid=App.data.busquedaActiva||busquedas[0].id;
+  const todas=bid==='todas';
+  const busqueda=todas?busquedas[0]:busquedas.find(b=>b.id===bid)||busquedas[0];
+  const candidatos=todas?App.data.candidatos:App.data.candidatos.filter(c=>c.busqueda_id===bid);
+
+  return `
+  <div class="p-4 md:p-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+      <div>
+        <h2 class="text-xl font-bold">Pipeline</h2>
+        ${todas?`<p class="text-sm text-gray-500">Todas las búsquedas · ${candidatos.length} candidatos</p>`:`<p class="text-sm text-gray-500">${busqueda.cliente} · ${busqueda.puesto}${busqueda.seniority?' · '+busqueda.seniority:''}</p>`}
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <select onchange="App.data.busquedaActiva=this.value; render()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900">
+          <option value="todas" ${todas?'selected':''}>📋 Todas las búsquedas</option>
+          ${busquedas.map(b=>`<option value="${b.id}" ${b.id===bid&&!todas?'selected':''}>${b.cliente} · ${b.puesto}</option>`).join('')}
+        </select>
+        ${!todas?`<button onclick="openModal('nuevo_candidato',{busqueda_id:'${bid}'})" class="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition">+ Candidato</button>`:''}
+      </div>
+    </div>
+
+    <!-- Briefing panel (solo cuando hay una búsqueda activa) -->
+    ${!todas?renderBriefingPanel(busqueda):''}
+
+    <!-- Kanban -->
+    <div class="overflow-x-auto -mx-4 px-4 mt-4">
+      <div class="flex gap-3 min-w-max pb-6">
+        ${ETAPAS.map(etapa=>renderKanbanCol(etapa,candidatos.filter(c=>c.etapa===etapa),bid,busqueda,todas)).join('')}
+        <div class="w-px bg-gray-200 mx-1 self-stretch"></div>
+        ${ETAPAS_EXTRA.map(etapa=>renderKanbanCol(etapa,candidatos.filter(c=>c.etapa===etapa),bid,busqueda,todas)).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderBriefingPanel(b) {
+  const mustHaves=tryJSON(b.must_haves,[]);
+  const niceToHaves=tryJSON(b.nice_to_haves,[]);
+  const redFlags=tryJSON(b.red_flags,[]);
+  const hasBriefing=mustHaves.length||b.contexto||b.dia_a_dia;
+
+  return `
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100 flex-wrap gap-2">
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-semibold text-gray-700">📋 Briefing del rol</span>
+        ${hasBriefing?`<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Completo</span>`:
+          `<span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Pendiente</span>`}
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        ${b.jd_pdf_url?`<a href="${b.jd_pdf_url}" target="_blank" class="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-lg font-medium hover:bg-blue-100 transition">📄 Ver JD</a>`:''}
+        <button onclick="openModal('parsear_jd','${b.id}')" class="text-xs px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg font-medium hover:bg-indigo-100 transition">✨ Parsear JD con IA</button>
+        <button onclick="openModal('sourcing_ia','${b.id}')" class="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-lg font-medium hover:bg-blue-100 transition">🔍 Sourcing IA</button>
+        <button onclick="openModal('resumen_pipeline','${b.id}')" class="text-xs px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg font-medium hover:bg-emerald-100 transition">📊 Resumen cliente</button>
+        <button onclick="openModal('briefing','${b.id}')" class="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-700 transition">Editar briefing</button>
+        ${b.estado==='activa'?`<button onclick="openModal('cerrar_busqueda','${b.id}')" class="text-xs px-3 py-1.5 bg-red-50 text-red-600 border border-red-100 rounded-lg font-medium hover:bg-red-100 transition">Cerrar búsqueda</button>`:''}
+      </div>
+    </div>
+
+    ${!hasBriefing?`
+      <div class="px-4 py-5 text-center">
+        <p class="text-sm text-gray-400 mb-1">Todavía no hay briefing para esta búsqueda.</p>
+        <p class="text-xs text-gray-400">Completalo para que el equipo sepa exactamente qué buscar y cómo evaluar candidatos.</p>
+      </div>
+    `:`
+      <div class="p-4 grid md:grid-cols-3 gap-4 text-sm">
+        ${b.contexto||b.dia_a_dia?`
+          <div class="md:col-span-3 space-y-1">
+            ${b.contexto?`<p class="text-gray-600"><span class="font-semibold text-gray-900">Contexto: </span>${b.contexto}</p>`:''}
+            ${b.dia_a_dia?`<p class="text-gray-600"><span class="font-semibold text-gray-900">Día a día: </span>${b.dia_a_dia}</p>`:''}
+          </div>`:''}
+        ${mustHaves.length?`
+          <div>
+            <p class="font-semibold text-gray-900 mb-2 flex items-center gap-1">✅ Must-haves</p>
+            <ul class="space-y-1">
+              ${mustHaves.map(m=>`<li class="flex gap-2 text-gray-700 text-xs leading-relaxed"><span class="text-green-500 mt-0.5 flex-shrink-0">•</span>${m}</li>`).join('')}
+            </ul>
+          </div>`:''}
+        ${niceToHaves.length?`
+          <div>
+            <p class="font-semibold text-gray-900 mb-2">⭐ Nice to haves</p>
+            <ul class="space-y-1">
+              ${niceToHaves.map(m=>`<li class="flex gap-2 text-gray-700 text-xs leading-relaxed"><span class="text-blue-400 mt-0.5 flex-shrink-0">•</span>${m}</li>`).join('')}
+            </ul>
+          </div>`:''}
+        ${redFlags.length?`
+          <div>
+            <p class="font-semibold text-gray-900 mb-2">🚩 Red flags</p>
+            <ul class="space-y-1">
+              ${redFlags.map(m=>`<li class="flex gap-2 text-gray-700 text-xs leading-relaxed"><span class="text-red-400 mt-0.5 flex-shrink-0">•</span>${m}</li>`).join('')}
+            </ul>
+          </div>`:''}
+        ${(b.banda_salarial_min||b.banda_salarial_max)?`
+          <div class="md:col-span-3 pt-2 border-t border-gray-100">
+            <p class="text-gray-600 text-xs"><span class="font-semibold text-gray-900">💰 Banda salarial: </span>${b.moneda||'ARS'} ${b.banda_salarial_min?fmtMoney(b.banda_salarial_min):'?'} – ${b.banda_salarial_max?fmtMoney(b.banda_salarial_max):'?'}</p>
+          </div>`:''}
+        ${b.criterio_si?`
+          <div class="md:col-span-3 pt-2 border-t border-gray-100">
+            <p class="text-gray-600 text-xs"><span class="font-semibold text-gray-900">Criterio "sí": </span>${b.criterio_si}</p>
+          </div>`:''}
+        ${b.proceso_cliente?`
+          <div class="md:col-span-3">
+            <p class="text-gray-600 text-xs"><span class="font-semibold text-gray-900">Proceso del cliente: </span>${b.proceso_cliente}</p>
+          </div>`:''}
+      </div>
+    `}
+  </div>`;
+}
+
+function renderKanbanCol(etapa, candidatos, bid, busqueda, todas) {
+  const topColor=ETAPA_TOP[etapa]||'border-t-indigo-400';
+  return `
+  <div class="kanban-col w-52 bg-gray-50 rounded-xl border border-gray-200 border-t-2 ${topColor} p-3"
+    ondragover="event.preventDefault();this.classList.add('drag-over')"
+    ondragleave="this.classList.remove('drag-over')"
+    ondrop="dropCandidato(event,'${etapa}','${bid}');this.classList.remove('drag-over')">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-xs font-semibold text-gray-700 leading-tight">${etapa}</p>
+      <span class="text-xs bg-white border border-gray-200 text-gray-500 px-1.5 py-0.5 rounded-full">${candidatos.length}</span>
+    </div>
+    <div class="space-y-2">
+      ${candidatos.map(c=>{
+        const b=todas?App.data.busquedas.find(x=>x.id===c.busqueda_id)||{}:busqueda;
+        const mustHaves=tryJSON(b?.must_haves,[]);
+        const sc=tryJSON(c.scorecard,{});
+        const dots=mustHaves.length?`<div class="flex gap-1 mt-2 flex-wrap">${mustHaves.map(mh=>{
+          const v=sc[mh];
+          const col=v==='si'?'bg-green-400':v==='no'?'bg-red-400':v==='quizas'?'bg-yellow-400':'bg-gray-200';
+          return `<span class="w-2 h-2 rounded-full ${col} inline-block" title="${mh}: ${v||'sin evaluar'}"></span>`;
+        }).join('')}</div>`:'';
+        const siCount=Object.values(sc).filter(v=>v==='si').length;
+        return `
+        <div class="bg-white rounded-lg p-3 border border-gray-200 shadow-sm hover:shadow-md transition select-none"
+          draggable="true"
+          ondragstart="dragStart(event,'${c.id}','${c.busqueda_id}')"
+          ondragend="this.classList.remove('dragging')"
+          onclick="openModal('ver_candidato','${c.id}')"
+          style="cursor:grab">
+          ${todas?`<p class="text-xs text-indigo-500 font-medium mb-1 truncate">${b.cliente||''} · ${b.puesto||''}</p>`:''}
+          <p class="text-sm font-semibold text-gray-900 leading-tight">${c.nombre}</p>
+          ${c.contacto_email?`<p class="text-xs text-gray-400 truncate">${c.contacto_email}</p>`:''}
+          <p class="text-xs text-gray-300 mt-1">${fmtDate(c.fecha_etapa_actual)}</p>
+          ${c.cv_score?`<div class="flex items-center gap-1.5 mt-1.5">
+            <span class="text-xs font-bold px-2 py-0.5 rounded-full ${Number(c.cv_score)>=7?'bg-green-100 text-green-700':Number(c.cv_score)>=5?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-600'}">
+              IA ${c.cv_score}/10
+            </span>
+          </div>`:''}
+          ${c.expectativa_salarial?`<p class="text-xs text-gray-400 mt-1">💰 ${c.expectativa_salarial}</p>`:''}
+          ${dots}
+          ${mustHaves.length?`<p class="text-xs text-gray-400 mt-1">${siCount}/${mustHaves.length} must-haves ✓</p>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+let _dragId=null, _dragBid=null;
+function dragStart(e,id,bid) { _dragId=id; _dragBid=bid; e.target.classList.add('dragging'); }
+async function dropCandidato(e,etapa,bid) {
+  e.preventDefault(); if(!_dragId) return;
+  const dragId=_dragId, dragBid=_dragBid;
+  _dragId=null; _dragBid=null;
+  const c=App.data.candidatos.find(x=>x.id===dragId);
+  const prevEtapa=c?.etapa;
+  if(c){c.etapa=etapa;c.fecha_etapa_actual=new Date().toISOString().slice(0,10);}
+  render();
+  const r=await apiPost({action:'mover_candidato',data:{candidato_id:dragId,busqueda_id:dragBid||bid,nueva_etapa:etapa}});
+  if(r.status!=='ok'){
+    if(c)c.etapa=prevEtapa; render(); showToast(r.message||'Error','error');
+  } else if(etapa==='Contratado') {
+    const busqId=dragBid||bid;
+    const b=App.data.busquedas.find(x=>x.id===busqId);
+    const vacantes=Number(b?.vacantes)||1;
+    const contratados=App.data.candidatos.filter(x=>x.busqueda_id===busqId&&x.etapa==='Contratado').length;
+    if(b && b.estado!=='cerrada' && contratados<=vacantes) {
+      openModal('placement', dragId);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KPIs
+// ═══════════════════════════════════════════════════════════════
+function renderKpis() {
+  const k=App.data.kpis, isAdmin=App.user.rol==='admin';
+  if(!k) return `<div class="p-6 text-gray-400 text-sm">Sin datos</div>`;
+  return `
+  <div class="p-6 max-w-3xl">
+    <h2 class="text-xl font-bold mb-2">KPIs</h2>
+    ${isAdmin?`<div class="mb-6">${selectorEquipoHTML()}</div>`:''}
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+      ${statCard('Búsquedas activas',k.busquedas_activas??'—','text-indigo-600')}
+      ${statCard('Contratados (mes)',k.contratados_mes??'—','text-green-600')}
+      ${statCard('Contratados (trim.)',k.contratados_trimestre??'—','text-green-500')}
+      ${statCard('Contratados (año)',k.contratados_anio??'—','text-green-400')}
+      ${statCard('Tasa de conversión',k.tasa_conversion!=null?k.tasa_conversion+'%':'—','text-gray-900')}
+      ${statCard('T° promedio cierre',k.tiempo_promedio_cierre_dias!=null?k.tiempo_promedio_cierre_dias+' días':'—','text-gray-900')}
+    </div>
+    <div class="bg-gray-50 rounded-xl p-5">
+      <p class="text-sm font-semibold text-gray-700 mb-4">Resumen financiero</p>
+      <div class="space-y-3">
+        ${kpiRow('Ingreso cobrado (mes)',fmtMoney(k.ingreso_cobrado_mes))}
+        ${kpiRow('Pipeline ponderado',fmtMoney(k.ingreso_pipeline_ponderado))}
+        ${kpiRow('Proyección del mes',fmtMoney(k.proyeccion_mes),true)}
+      </div>
+    </div>
+    <button onclick="exportarKpis()" class="mt-4 text-sm text-gray-500 hover:text-gray-900 underline">Exportar para WhatsApp</button>
+  </div>`;
+}
+function kpiRow(label,value,bold=false) {
+  return `<div class="flex items-center justify-between text-sm ${bold?'font-semibold border-t border-gray-200 pt-3 mt-1':''}">
+    <span class="text-gray-600">${label}</span><span class="${bold?'text-gray-900 text-base':'text-gray-800'}">${value}</span></div>`;
+}
+function exportarKpis() {
+  const k=App.data.kpis; if(!k) return;
+  const vista=App.data.vistaPersona?` (${App.data.vistaPersona})`:'';
+  const texto=`📊 KPIs AGB Recruiting${vista}\n📅 ${new Date().toLocaleDateString('es-AR')}\n\n• Búsquedas activas: ${k.busquedas_activas}\n• Contratados del mes: ${k.contratados_mes}\n• Tasa de conversión: ${k.tasa_conversion??'—'}%\n• T° promedio cierre: ${k.tiempo_promedio_cierre_dias??'—'} días\n\n💰 Financiero\n• Cobrado (mes): ${fmtMoney(k.ingreso_cobrado_mes)}\n• Pipeline ponderado: ${fmtMoney(k.ingreso_pipeline_ponderado)}\n• Proyección: ${fmtMoney(k.proyeccion_mes)}`;
+  navigator.clipboard.writeText(texto).then(()=>showToast('Copiado al portapapeles ✓'));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INGRESOS
+// ═══════════════════════════════════════════════════════════════
+function calcFeeClient(b) {
+  if(b.fee_tipo==='fijo') return Number(b.fee_valor)||0;
+  if(b.fee_tipo==='%') return (Number(b.fee_base)||0)*(Number(b.fee_valor)||0)/100;
+  return 0;
+}
+
+function renderIngresos() {
+  const busquedas=App.data.busquedas;
+  const isAdmin=App.user.rol==='admin';
+  const placements=busquedas.filter(b=>b.estado==='cerrada')
+    .sort((a,b)=>(b.fecha_cierre||'').localeCompare(a.fecha_cierre||''));
+  const activas=busquedas.filter(b=>b.estado==='activa');
+
+  // Admin ve fee_cabeza, recruiter ve fee_recruiter
+  const feeKey=isAdmin?'fee_cabeza':'fee_recruiter';
+  const cobrado=placements.filter(b=>b.estado_cobro==='cobrado').reduce((t,b)=>t+(Number(b[feeKey])||Number(b.fee_calculado)||0),0);
+  const pendiente=placements.filter(b=>b.estado_cobro!=='cobrado').reduce((t,b)=>t+(Number(b[feeKey])||Number(b.fee_calculado)||0),0);
+  const pipeline=activas.reduce((t,b)=>t+calcFeeClient(b),0);
+  const sinFees=isAdmin?placements.filter(b=>!Number(b.fee_calculado)):[];
+
+  return `
+  <div class="p-6 max-w-4xl">
+    <h2 class="text-xl font-bold mb-2">Ingresos</h2>
+    ${isAdmin?`<p class="text-xs text-gray-400 mb-6">Vista completa · solo visible para Cabeza</p>`:`<p class="text-xs text-gray-400 mb-6">Tu comisión por placement</p>`}
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      ${statCard('Cobrado',fmtMoney(cobrado),'text-green-600')}
+      ${statCard('Pendiente de cobro',fmtMoney(pendiente),'text-amber-600')}
+      ${statCard('Fee en pipeline activo',fmtMoney(pipeline),'text-indigo-600')}
+    </div>
+
+    ${sinFees.length?`
+    <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-5">
+      <p class="text-sm font-semibold text-red-800 mb-1">⚠️ ${sinFees.length} placement${sinFees.length>1?'s':''} sin fees cargados</p>
+      <div class="space-y-2 mt-2">
+        ${sinFees.map(b=>`
+          <div class="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-red-100">
+            <span class="text-sm text-gray-700">${b.cliente} · ${b.puesto} <span class="text-xs text-gray-400">· ${b.candidato_placement||'—'}</span></span>
+            <button onclick="openModal('completar_fees','${b.id}')" class="text-xs bg-red-600 text-white px-3 py-1 rounded-lg font-medium hover:bg-red-700 transition">Cargar fees →</button>
+          </div>`).join('')}
+      </div>
+    </div>`:''}
+
+    ${placements.length===0?`
+      <div class="text-center py-12 text-gray-400 text-sm bg-gray-50 rounded-xl">
+        <p class="text-2xl mb-2">🎯</p>
+        <p>No hay placements registrados todavía.</p>
+        <p class="text-xs mt-1">Cuando cerrés una búsqueda por placement, aparece acá.</p>
+      </div>
+    `:`
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div class="bg-gray-50 px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+          <p class="text-xs font-semibold text-gray-700">Placements (${placements.length})</p>
+          <p class="text-xs text-gray-400">Total: ${fmtMoney(cobrado+pendiente)}</p>
+        </div>
+        <div class="divide-y divide-gray-100">
+          ${placements.map(b=>{
+            const miFee=Number(b[feeKey])||Number(b.fee_calculado)||0;
+            const feeTotal=Number(b.fee_calculado)||0;
+            const sinFee=!feeTotal&&isAdmin;
+            return `
+            <div class="px-4 py-3 ${sinFee?'bg-red-50':''}">
+              <div class="flex items-start gap-3 flex-wrap">
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-semibold text-gray-900">${b.cliente} · ${b.puesto}</p>
+                  <p class="text-xs text-gray-400 mt-0.5">
+                    ${b.candidato_placement?b.candidato_placement+' · ':''}${fmtDate(b.fecha_cierre)}
+                    ${b.fecha_ingreso_contratado?' · Ingreso '+fmtDate(b.fecha_ingreso_contratado):''}
+                    ${b.recruiter_asignado?' · 👤 '+b.recruiter_asignado:''}
+                  </p>
+                  ${isAdmin&&feeTotal?`
+                  <p class="text-xs text-gray-500 mt-1">
+                    Fee total: <strong>${fmtMoney(feeTotal,b.moneda||'')}</strong>
+                    ${b.fee_recruiter?' · Recruiter: '+fmtMoney(b.fee_recruiter,b.moneda||''):''}
+                    ${b.fee_cabeza?' · <span class="text-amber-700">Cabeza: '+fmtMoney(b.fee_cabeza,b.moneda||'')+'</span>':''}
+                  </p>`:''}
+                  ${b.garantia_dias?`<p class="text-xs text-gray-400">Garantía: ${b.garantia_dias} días${b.fecha_ingreso_contratado?' · vence '+fmtDate(new Date(new Date(b.fecha_ingreso_contratado).getTime()+Number(b.garantia_dias)*86400000).toISOString().slice(0,10)):''}</p>`:''}
+                </div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  ${sinFee
+                    ?`<button onclick="openModal('completar_fees','${b.id}')" class="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-red-700 transition">Cargar fees →</button>`
+                    :`<div class="text-right">
+                        <p class="text-sm font-bold text-gray-900">${fmtMoney(miFee,b.moneda||'')}</p>
+                        ${b.fecha_cobro_estimada&&b.estado_cobro!=='cobrado'?`<p class="text-xs text-gray-400">Est. ${fmtDate(b.fecha_cobro_estimada)}</p>`:''}
+                      </div>`}
+                  ${b.estado_cobro==='cobrado'
+                    ?`<span class="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">✓ Cobrado</span>`
+                    :miFee?`<button onclick="marcarCobrado('${b.id}')" class="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full font-medium hover:bg-amber-100 transition">⏳ Cobrar</button>`:''}
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HISTORIAL
+// ═══════════════════════════════════════════════════════════════
+function renderHistorial() {
+  const busquedas=App.data.busquedas;
+  const candidatos=App.data.candidatos;
+  const cerradas=busquedas.filter(b=>b.estado==='cerrada');
+  const perdidas=busquedas.filter(b=>b.estado==='perdida');
+  const todas=[...cerradas,...perdidas].sort((a,b)=>(b.fecha_cierre||'').localeCompare(a.fecha_cierre||''));
+  const total=busquedas.length;
+  const tasaCierre=(cerradas.length+perdidas.length)>0?Math.round(cerradas.length/(cerradas.length+perdidas.length)*100):0;
+
+  const motivoStats={};
+  perdidas.forEach(b=>{const m=b.motivo_cierre||'Sin especificar';motivoStats[m]=(motivoStats[m]||0)+1;});
+
+  return `
+  <div class="p-6 max-w-5xl">
+    <h2 class="text-xl font-bold mb-6">Historial de búsquedas</h2>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      ${statCard('Total trabajadas',total,'text-gray-900')}
+      ${statCard('Placements',cerradas.length,'text-green-600')}
+      ${statCard('Perdidas',perdidas.length,'text-red-500')}
+      ${statCard('Tasa de cierre',tasaCierre+'%','text-indigo-600')}
+    </div>
+
+    ${perdidas.length&&Object.keys(motivoStats).length?`
+    <div class="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-6">
+      <p class="text-sm font-semibold text-amber-800 mb-2">Por qué se perdieron (${perdidas.length})</p>
+      <div class="flex flex-wrap gap-2">
+        ${Object.entries(motivoStats).map(([m,n])=>`
+          <span class="text-xs bg-white border border-amber-200 text-amber-800 px-3 py-1.5 rounded-lg">
+            <strong>${n}</strong> — ${m}
+          </span>`).join('')}
+      </div>
+    </div>`:''}
+
+    ${todas.length===0?`
+      <div class="text-center py-12 text-gray-400 text-sm bg-gray-50 rounded-xl">
+        <p>No hay búsquedas cerradas todavía.</p>
+      </div>
+    `:`
+      <div class="space-y-3">
+        ${todas.map(b=>{
+          const cands=candidatos.filter(c=>c.busqueda_id===b.id);
+          const esCerrada=b.estado==='cerrada';
+          const etapasCount={};
+          cands.forEach(c=>{etapasCount[c.etapa]=(etapasCount[c.etapa]||0)+1;});
+          return `
+          <div class="bg-white border ${esCerrada?'border-green-200':'border-gray-200'} rounded-xl p-4">
+            <div class="flex items-start justify-between gap-3 flex-wrap mb-2">
+              <div>
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <span class="font-semibold text-gray-900">${b.cliente}</span>
+                  <span class="text-gray-400">·</span>
+                  <span class="text-gray-700">${b.puesto}</span>
+                  ${b.seniority?`<span class="text-gray-400 text-sm">${b.seniority}</span>`:''}
+                </div>
+                <div class="flex items-center gap-2 text-xs flex-wrap">
+                  ${esCerrada
+                    ?`<span class="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">✓ Placement</span>`
+                    :`<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">✗ Perdida</span>`}
+                  ${b.motivo_cierre?`<span class="text-gray-500">${b.motivo_cierre}</span>`:''}
+                  ${b.fecha_cierre?`<span class="text-gray-400">${fmtDate(b.fecha_cierre)}</span>`:''}
+                  ${b.recruiter_asignado?`<span class="text-gray-400">👤 ${b.recruiter_asignado}</span>`:''}
+                </div>
+              </div>
+              <div class="text-right flex-shrink-0">
+                ${esCerrada&&b.fee_calculado?`<p class="text-base font-bold text-gray-900">${fmtMoney(b.fee_calculado,b.moneda||'')}</p>`:''}
+                ${esCerrada&&b.candidato_placement?`<p class="text-xs text-gray-500">${b.candidato_placement}</p>`:''}
+                ${esCerrada&&b.estado_cobro?`<span class="text-xs ${b.estado_cobro==='cobrado'?'text-green-700':'text-amber-700'}">${b.estado_cobro==='cobrado'?'✓ Cobrado':'⏳ Pendiente cobro'}</span>`:''}
+              </div>
+            </div>
+            <div class="text-xs text-gray-400 border-t border-gray-50 pt-2 mt-2 flex gap-3 flex-wrap">
+              <span>${cands.length} candidatos en pipeline</span>
+              ${Object.entries(etapasCount).map(([e,n])=>`<span>${n} en ${e}</span>`).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODALES — ROUTER
+// ═══════════════════════════════════════════════════════════════
+function renderModal() {
+  if(!App.modal) return '';
+  const {type,payload}=App.modal;
+  let content='';
+  try {
+    if(type==='nueva_busqueda')  content=modalNuevaBusqueda(payload);
+    else if(type==='editar_busqueda') content=modalEditarBusqueda(payload);
+    else if(type==='nuevo_candidato') content=modalNuevoCandidato(payload);
+    else if(type==='ver_candidato')   content=modalVerCandidato(payload);
+    else if(type==='editar_candidato') content=modalEditarCandidato(payload);
+    else if(type==='briefing')   content=modalBriefing(payload);
+    else if(type==='parsear_jd') content=modalParsearJD(payload);
+    else if(type==='confirmar_eliminar_busqueda') content=modalConfirmarEliminarBusqueda(payload);
+    else if(type==='placement') content=modalPlacement(payload);
+    else if(type==='cerrar_busqueda') content=modalCerrarBusqueda(payload);
+    else if(type==='completar_fees') content=modalCompletarFees(payload);
+    else if(type==='sourcing_ia') content=modalSourcingIA(payload);
+    else if(type==='resumen_pipeline') content=modalResumenPipeline(payload);
+    else if(type==='ficha_entrevista') content=modalFichaEntrevista(payload);
+  } catch(err) {
+    content=`<div class="p-6"><div class="flex items-center justify-between mb-4"><h3 class="text-lg font-bold text-red-600">Error al abrir</h3><button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-2xl">×</button></div><p class="text-sm text-gray-600 bg-red-50 rounded-lg p-3">${err.message}</p></div>`;
+  }
+  return `
+  <div class="fixed inset-0 z-40 flex items-end md:items-center justify-center px-0 md:px-4">
+    <div class="absolute inset-0 bg-black/40" onclick="closeModal()"></div>
+    <div class="relative bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto fade-in">
+      ${content}
+    </div>
+  </div>`;
+}
+
+function modalHeader(title) {
+  return `<div class="flex items-center justify-between mb-5"><h3 class="text-lg font-bold">${title}</h3><button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL — BRIEFING
+// ═══════════════════════════════════════════════════════════════
+function modalBriefing(bid) {
+  const base=App.data.busquedas.find(x=>x.id===bid)||{};
+  const p=App._parsedBriefing||{};
+  const b={...base,
+    contexto:p.contexto||base.contexto||'',
+    dia_a_dia:p.dia_a_dia||base.dia_a_dia||'',
+    proceso_cliente:p.proceso_cliente||base.proceso_cliente||'',
+    criterio_si:p.criterio_si||base.criterio_si||'',
+    must_haves:p.must_haves?JSON.stringify(p.must_haves):base.must_haves||'[]',
+    nice_to_haves:p.nice_to_haves?JSON.stringify(p.nice_to_haves):base.nice_to_haves||'[]',
+    red_flags:p.red_flags?JSON.stringify(p.red_flags):base.red_flags||'[]',
+  };
+  const mh=tryJSON(b.must_haves,[]).join('\n');
+  const nth=tryJSON(b.nice_to_haves,[]).join('\n');
+  const rf=tryJSON(b.red_flags,[]).join('\n');
+  return `
+  <div class="p-6">
+    ${modalHeader(`Briefing — ${b.cliente||''} · ${b.puesto||''}`)}
+    ${b.jd_pdf_url ? `<a href="${b.jd_pdf_url}" target="_blank" class="flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 mb-4 font-medium">📄 Ver / descargar JD en PDF</a>` : ''}
+    <form id="briefingForm" onsubmit="submitBriefing(event,'${bid}')" class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-gray-700 mb-1">Contexto del equipo / por qué está vacante</label>
+        <textarea name="contexto" rows="2" class="${inputCls()} resize-none" placeholder="Ej: El equipo de producto tiene 8 personas y buscan un tech lead para liderar el squad de pagos...">${b.contexto||''}</textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-700 mb-1">Día a día del rol</label>
+        <textarea name="dia_a_dia" rows="2" class="${inputCls()} resize-none" placeholder="Qué hace esta persona concretamente en su semana típica...">${b.dia_a_dia||''}</textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-700 mb-1">✅ Must-haves <span class="font-normal text-gray-400">(uno por línea — estos son los criterios del scorecard)</span></label>
+        <textarea name="must_haves" rows="4" id="mhTextarea" class="${inputCls()} resize-none" placeholder="5+ años de experiencia en backend&#10;Inglés avanzado&#10;Experiencia con microservicios&#10;Haber liderado un equipo">${mh}</textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-700 mb-1">⭐ Nice to haves <span class="font-normal text-gray-400">(uno por línea)</span></label>
+        <textarea name="nice_to_haves" rows="3" class="${inputCls()} resize-none" placeholder="Experiencia en fintech&#10;Conocimiento de AWS">${nth}</textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-700 mb-1">🚩 Red flags <span class="font-normal text-gray-400">(uno por línea)</span></label>
+        <textarea name="red_flags" rows="3" class="${inputCls()} resize-none" placeholder="Más de 6 meses sin trabajar sin justificación&#10;No tiene referencias verificables">${rf}</textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-700 mb-1">Proceso del cliente</label>
+        <textarea name="proceso_cliente" rows="2" class="${inputCls()} resize-none" placeholder="Ej: HR screen → tech interview → pair programming → oferta. 2-3 semanas.">${b.proceso_cliente||''}</textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-700 mb-1">Criterio "sí claro"</label>
+        <textarea name="criterio_si" rows="2" class="${inputCls()} resize-none" placeholder="Qué hace que un candidato sea un sí sin dudar...">${b.criterio_si||''}</textarea>
+      </div>
+      <div class="border-t border-gray-100 pt-4">
+        <label class="block text-xs font-semibold text-gray-700 mb-1">💰 Banda salarial</label>
+        <div class="flex gap-2 items-center">
+          <select name="moneda" class="${selectCls()} w-24 flex-shrink-0"><option value="ARS" ${(b.moneda||'ARS')==='ARS'?'selected':''}>ARS</option><option value="USD" ${b.moneda==='USD'?'selected':''}>USD</option></select>
+          <input name="banda_salarial_min" type="number" value="${b.banda_salarial_min||''}" placeholder="Mínimo" class="${inputCls()} flex-1">
+          <span class="text-gray-400 text-sm">–</span>
+          <input name="banda_salarial_max" type="number" value="${b.banda_salarial_max||''}" placeholder="Máximo" class="${inputCls()} flex-1">
+        </div>
+      </div>
+      <div class="border-t border-gray-100 pt-4">
+        <label class="block text-xs font-semibold text-gray-700 mb-1">📝 Notas de reunión / mail de alineamiento</label>
+        <textarea name="notas_alineamiento" rows="4" class="${inputCls()} resize-none text-xs" placeholder="Lo que te contaron en la reunión: qué buscan realmente, red flags verbales, comentarios del manager, urgencias, etc.">${b.notas_alineamiento||''}</textarea>
+      </div>
+      <button type="submit" class="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-700 transition text-sm">Guardar briefing</button>
+    </form>
+  </div>`;
+}
+
+async function submitBriefing(e,bid) {
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const d=Object.fromEntries(fd.entries());
+  const updates={
+    id:bid,
+    contexto:d.contexto,
+    dia_a_dia:d.dia_a_dia,
+    must_haves:JSON.stringify(d.must_haves.split('\n').map(s=>s.trim()).filter(Boolean)),
+    nice_to_haves:JSON.stringify(d.nice_to_haves.split('\n').map(s=>s.trim()).filter(Boolean)),
+    red_flags:JSON.stringify(d.red_flags.split('\n').map(s=>s.trim()).filter(Boolean)),
+    proceso_cliente:d.proceso_cliente,
+    criterio_si:d.criterio_si,
+    notas_alineamiento:d.notas_alineamiento||'',
+    moneda:d.moneda||'ARS',
+    banda_salarial_min:d.banda_salarial_min||'',
+    banda_salarial_max:d.banda_salarial_max||'',
+  };
+  const r=await apiPost({action:'editar_busqueda',data:updates});
+  if(r.status==='ok'){
+    const b=App.data.busquedas.find(x=>x.id===bid);
+    if(b) Object.assign(b,updates);
+    App._parsedBriefing=null; showToast('Briefing guardado ✓'); closeModal();
+  } else showToast(r.message||'Error','error');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL — PARSEAR JD CON IA
+// ═══════════════════════════════════════════════════════════════
+function modalParsearJD(bid) {
+  const b=App.data.busquedas.find(x=>x.id===bid)||{};
+  const hasPdf=!!b.jd_pdf_url;
+  return `
+  <div class="p-6">
+    ${modalHeader('✨ Parsear JD con IA')}
+
+    <div id="jdPdfDropZone" onclick="document.getElementById('jdPdfFileInput').click()"
+      ondragover="event.preventDefault();this.classList.add('border-indigo-400','bg-indigo-50')"
+      ondragleave="this.classList.remove('border-indigo-400','bg-indigo-50')"
+      ondrop="handleJDPdfDrop(event,'${bid}')"
+      class="border-2 border-dashed ${hasPdf?'border-green-300 bg-green-50':'border-gray-200'} rounded-xl p-3 text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50 transition mb-3">
+      ${hasPdf
+        ? `<p class="text-xs text-green-700 font-medium">✅ PDF guardado — <a href="${b.jd_pdf_url}" target="_blank" onclick="event.stopPropagation()" class="underline hover:text-green-900">Ver / descargar</a></p>
+           <p class="text-xs text-gray-400 mt-0.5">Hacé clic o arrastrá para reemplazarlo</p>`
+        : `<p class="text-xs text-gray-600 font-medium">📄 Subí el PDF de la JD</p>
+           <p class="text-xs text-gray-400">Arrastrá o hacé clic — queda guardado en Drive para descargarlo cuando quieras</p>`
+      }
+    </div>
+    <input type="file" id="jdPdfFileInput" accept=".pdf" class="hidden" onchange="handleJDPdfFile(this.files[0],'${bid}')">
+    <p id="jdPdfStatus" class="text-xs text-indigo-600 mb-3 hidden"></p>
+
+    <div class="mb-3">
+      <label class="block text-xs font-semibold text-gray-700 mb-1">Texto de la JD <span class="font-normal text-gray-400">(se completa solo al subir el PDF, o pegalo manualmente)</span></label>
+      <textarea id="jdText" rows="5" class="${inputCls()} resize-none text-xs" placeholder="El texto de la JD aparece acá al subir el PDF, o podés pegarlo directamente...">${b.jd_texto||''}</textarea>
+    </div>
+    <div class="mb-4">
+      <label class="block text-xs font-semibold text-gray-700 mb-1">Notas + instrucciones para la IA <span class="font-normal text-gray-400">(opcional)</span></label>
+      <textarea id="notasText" rows="4" class="${inputCls()} resize-none text-xs" placeholder="Notas de la reunión, comentarios del manager... o instrucciones: &quot;traducir todo al español&quot;, &quot;el criterio sí es que tenga experiencia en B2B&quot;, etc.">${b.notas_alineamiento||''}</textarea>
+    </div>
+    <button onclick="ejecutarParseJD('${bid}')" id="parseBtn" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition text-sm">
+      ✨ Parsear con IA
+    </button>
+  </div>`;
+}
+
+async function ejecutarParseJD(bid) {
+  const jdText=document.getElementById('jdText')?.value?.trim();
+  const notasText=document.getElementById('notasText')?.value?.trim();
+  if(!jdText && !notasText){showToast('Pegá la JD o las notas de alineamiento','error');return;}
+  const btn=document.getElementById('parseBtn');
+  if(btn){btn.disabled=true;btn.textContent='Procesando con IA...';}
+  try {
+    // Guardar textos en el sheet
+    const saves={id:bid};
+    if(jdText) saves.jd_texto=jdText;
+    if(notasText) saves.notas_alineamiento=notasText;
+    if(Object.keys(saves).length>1) {
+      await apiPost({action:'editar_busqueda',data:saves});
+      const b=App.data.busquedas.find(x=>x.id===bid);
+      if(b) Object.assign(b,saves);
+    }
+    const r=await apiPost({action:'parsear_jd',data:{jd_text:jdText||'',notas_text:notasText||'',busqueda_id:bid}});
+    if(r.status==='ok'){
+      App._parsedBriefing=r.data;
+      App.modal={type:'briefing',payload:bid};
+      render();
+      showToast('Briefing pre-llenado — revisá y guardá ✓');
+    } else {
+      showToast(r.message||'Error al parsear','error');
+      if(btn){btn.disabled=false;btn.textContent='✨ Parsear con IA';}
+    }
+  } catch(e) { showToast('Error: '+e.message,'error'); if(btn){btn.disabled=false;btn.textContent='✨ Parsear con IA';} }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PDF DE JD → PIPELINE (subir desde modal Parsear JD)
+// ═══════════════════════════════════════════════════════════════
+function handleJDPdfDrop(e, bid) {
+  e.preventDefault();
+  document.getElementById('jdPdfDropZone')?.classList.remove('border-indigo-400','bg-indigo-50');
+  const file=e.dataTransfer?.files?.[0];
+  if(file && file.type==='application/pdf') handleJDPdfFile(file, bid);
+  else showToast('Solo se aceptan archivos PDF','error');
+}
+
+async function handleJDPdfFile(file, bid) {
+  if(!file) return;
+  const statusEl=document.getElementById('jdPdfStatus');
+  const dropZone=document.getElementById('jdPdfDropZone');
+  if(statusEl){statusEl.classList.remove('hidden');statusEl.textContent='📄 Leyendo PDF...';}
+  if(dropZone) dropZone.classList.add('opacity-40','pointer-events-none');
+  try {
+    if(typeof pdfjsLib==='undefined') throw new Error('pdf.js no cargó — revisá tu conexión');
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const arrayBuffer=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    let text='';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const content=await page.getTextContent();
+      text+=content.items.map(item=>item.str).join(' ')+'\n';
+    }
+    if(statusEl) statusEl.textContent='☁️ Subiendo PDF a Drive...';
+    // Subir a Drive
+    const base64=await new Promise(res=>{
+      const reader=new FileReader();
+      reader.onload=()=>res(reader.result.split(',')[1]);
+      reader.readAsDataURL(file);
+    });
+    const r=await apiPost({action:'guardar_jd_pdf',data:{filename:file.name,base64data:base64,busqueda_id:bid}});
+    if(r.status!=='ok') throw new Error(r.message||'Error al subir PDF');
+    const url=r.data.url;
+    // Actualizar en memoria y en el textarea de texto
+    const b=App.data.busquedas.find(x=>x.id===bid);
+    if(b){
+      b.jd_pdf_url=url;
+      if(text.trim()) b.jd_texto=text.trim();
+    }
+    // Pre-llenar el textarea de texto de la JD
+    const jdTextArea=document.getElementById('jdText');
+    if(jdTextArea && text.trim()) jdTextArea.value=text.trim();
+    // Actualizar la zona de drop
+    if(dropZone){
+      dropZone.classList.remove('opacity-40','pointer-events-none');
+      dropZone.className=dropZone.className.replace('border-gray-200','border-green-300 bg-green-50');
+      dropZone.innerHTML=`<p class="text-xs text-green-700 font-medium">✅ PDF guardado — <a href="${url}" target="_blank" onclick="event.stopPropagation()" class="underline hover:text-green-900">Ver / descargar</a></p><p class="text-xs text-gray-400 mt-0.5">Hacé clic o arrastrá para reemplazarlo</p>`;
+    }
+    if(statusEl) statusEl.classList.add('hidden');
+    showToast('PDF guardado en Drive ✓');
+  } catch(err){
+    showToast(err.message,'error');
+    if(statusEl){statusEl.textContent='❌ '+err.message;statusEl.classList.add('text-red-500');}
+    if(dropZone) dropZone.classList.remove('opacity-40','pointer-events-none');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PDF → PARSEAR JD → PRE-LLENAR FORMULARIO
+// ═══════════════════════════════════════════════════════════════
+function handleJDDrop(e) {
+  e.preventDefault();
+  document.getElementById('jdDropZone')?.classList.remove('border-indigo-400','bg-indigo-50');
+  const file = e.dataTransfer?.files?.[0];
+  if (file && file.type === 'application/pdf') handleJDFile(file);
+  else showToast('Solo se aceptan archivos PDF', 'error');
+}
+
+async function handleJDFile(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('jdParseStatus');
+  const dropZone = document.getElementById('jdDropZone');
+  if (statusEl) { statusEl.classList.remove('hidden'); statusEl.textContent = '📄 Leyendo PDF...'; }
+  if (dropZone) dropZone.classList.add('opacity-40', 'pointer-events-none');
+
+  try {
+    // Extraer texto del PDF con pdf.js
+    if (typeof pdfjsLib === 'undefined') throw new Error('pdf.js no cargó — revisá tu conexión a internet');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(item => item.str).join(' ') + '\n';
+    }
+
+    if (!text.trim()) throw new Error('El PDF no tiene texto extraíble (puede ser una imagen escaneada)');
+
+    if (statusEl) statusEl.textContent = '☁️ Guardando PDF en Drive...';
+
+    // Guardar PDF en Google Drive
+    const busquedaId = document.getElementById('busquedaForm')?.querySelector('[name="_busqueda_id"]')?.value || '';
+    const base64 = await new Promise(res => {
+      const reader = new FileReader();
+      reader.onload = () => res(reader.result.split(',')[1]);
+      reader.readAsDataURL(file);
+    });
+    const pdfR = await apiPost({ action: 'guardar_pdf', data: { filename: file.name, base64data: base64, busqueda_id: busquedaId } });
+    if (pdfR.status === 'ok') {
+      const hiddenPdf = document.getElementById('busquedaForm')?.querySelector('[name="jd_pdf_url"]');
+      if (hiddenPdf) hiddenPdf.value = pdfR.data.url;
+    }
+
+    if (statusEl) statusEl.textContent = '✨ Analizando con IA...';
+
+    // Llamar al Apps Script
+    const r = await apiPost({ action: 'parsear_jd', data: { jd_text: text, jd_texto: text } });
+    if (r.status !== 'ok') throw new Error(r.message || 'Error al parsear');
+
+    const p = r.data;
+
+    // Pre-llenar campos del formulario
+    const f = document.getElementById('busquedaForm');
+    if (!f) return;
+
+    const set = (name, val) => { if (!val && val !== 0) return; const el = f.querySelector(`[name="${name}"]`); if (el) el.value = val; };
+    const setSelect = (name, val) => {
+      if (!val) return;
+      const el = f.querySelector(`[name="${name}"]`);
+      if (!el) return;
+      const opt = [...el.options].find(o => o.value.toLowerCase() === String(val).toLowerCase());
+      if (opt) el.value = opt.value;
+    };
+
+    set('cliente',            p.cliente);
+    set('puesto',             p.puesto);
+    set('banda_salarial_min', p.banda_salarial_min);
+    set('banda_salarial_max', p.banda_salarial_max);
+    setSelect('seniority',    p.seniority);
+    setSelect('modalidad',    p.modalidad);
+    setSelect('moneda',       p.moneda);
+
+    // Guardar briefing en campo oculto para enviarlo junto con la búsqueda
+    const briefing = {
+      contexto:       p.contexto       || '',
+      dia_a_dia:      p.dia_a_dia      || '',
+      must_haves:     JSON.stringify(p.must_haves    || []),
+      nice_to_haves:  JSON.stringify(p.nice_to_haves || []),
+      red_flags:      JSON.stringify(p.red_flags     || []),
+      proceso_cliente:p.proceso_cliente || '',
+      criterio_si:    p.criterio_si    || '',
+    };
+    const briefingInput = f.querySelector('[name="_briefing"]');
+    if (briefingInput) briefingInput.value = JSON.stringify(briefing);
+
+    if (statusEl) {
+      statusEl.textContent = '✅ Formulario pre-llenado — revisá y completá lo que falta (fee, recruiter)';
+      statusEl.classList.add('text-green-600');
+      statusEl.classList.remove('text-indigo-600');
+    }
+    if (dropZone) { dropZone.classList.remove('opacity-40','pointer-events-none'); dropZone.classList.add('hidden'); }
+
+  } catch(err) {
+    showToast(err.message, 'error');
+    if (statusEl) { statusEl.textContent = '❌ ' + err.message; statusEl.classList.add('text-red-500'); }
+    if (dropZone) dropZone.classList.remove('opacity-40','pointer-events-none');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL — CANDIDATOS (con scorecard)
+// ═══════════════════════════════════════════════════════════════
+function renderScorecard(busquedaId, existingScorecard) {
+  const b=App.data.busquedas.find(x=>x.id===busquedaId)||{};
+  const mustHaves=tryJSON(b.must_haves,[]);
+  if(!mustHaves.length) return '';
+  const sc=existingScorecard||{};
+  return `
+  <div class="border border-gray-200 rounded-xl overflow-hidden">
+    <div class="bg-gray-50 px-4 py-2.5 border-b border-gray-100">
+      <p class="text-xs font-semibold text-gray-700">Scorecard — Must-haves</p>
+    </div>
+    <div class="divide-y divide-gray-100">
+      ${mustHaves.map((mh,i)=>{
+        const val=sc[mh]||'';
+        return `
+        <div class="flex items-center justify-between px-4 py-2.5 gap-3">
+          <p class="text-xs text-gray-700 flex-1">${mh}</p>
+          <div class="flex gap-1 flex-shrink-0">
+            <button type="button" onclick="setScore(this,'${mh.replace(/'/g,"\\'")}','si')" data-key="${i}" class="score-btn ${val==='si'?'active-si':''} text-xs px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-green-50">✓ Sí</button>
+            <button type="button" onclick="setScore(this,'${mh.replace(/'/g,"\\'")}','quizas')" data-key="${i}" class="score-btn ${val==='quizas'?'active-q':''} text-xs px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-yellow-50">? Quizás</button>
+            <button type="button" onclick="setScore(this,'${mh.replace(/'/g,"\\'")}','no')" data-key="${i}" class="score-btn ${val==='no'?'active-no':''} text-xs px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-red-50">✗ No</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+  <input type="hidden" name="scorecard" id="scorecardInput" value='${JSON.stringify(sc).replace(/'/g,"&#39;")}'>`;
+}
+
+function setScore(btn, key, val) {
+  // Toggle: si ya está activo, deseleccionar
+  const isActive=(val==='si'&&btn.classList.contains('active-si'))||(val==='no'&&btn.classList.contains('active-no'))||(val==='quizas'&&btn.classList.contains('active-q'));
+  const actualVal=isActive?'':val;
+
+  // Actualizar draft en memoria
+  if(!App.scorecardDraft) App.scorecardDraft={};
+  App.scorecardDraft[key]=actualVal;
+
+  // Actualizar hidden input
+  const input=document.getElementById('scorecardInput');
+  if(input) {
+    const current=tryJSON(input.value,{});
+    current[key]=actualVal;
+    input.value=JSON.stringify(current);
+  }
+
+  // Actualizar estilos de los 3 botones de esa fila
+  const row=btn.closest('.flex');
+  row.querySelectorAll('.score-btn').forEach(b=>b.classList.remove('active-si','active-no','active-q'));
+  if(actualVal==='si') btn.classList.add('active-si');
+  else if(actualVal==='no') btn.classList.add('active-no');
+  else if(actualVal==='quizas') btn.classList.add('active-q');
+}
+
+function cvDropZoneHtml(formId, existingCvUrl) {
+  const url = App._cvPdfUrl || existingCvUrl || '';
+  const inner = url
+    ? `<p class="text-sm font-semibold text-green-700">✅ CV guardado — <a href="${url}" target="_blank" onclick="event.stopPropagation()" class="underline hover:text-green-900">Ver / descargar</a></p><p class="text-xs text-green-600 mt-0.5">Hacé clic o arrastrá para reemplazarlo</p>`
+    : `<p class="text-sm font-semibold text-indigo-700">📄 Subir CV con IA</p><p class="text-xs text-indigo-500 mt-0.5">Hacé clic o arrastrá un PDF — se guarda en Drive y completa los campos</p>`;
+  return `
+  <div class="mb-5">
+    <div id="cvDropZone" onclick="document.getElementById('cvFileInput').click()"
+      ondragover="event.preventDefault();this.classList.add('border-indigo-500','bg-indigo-100')"
+      ondragleave="this.classList.remove('border-indigo-500','bg-indigo-100')"
+      ondrop="handleCVDrop(event,'${formId}')"
+      class="border-2 border-dashed ${url?'border-green-300 bg-green-50':'border-indigo-300 bg-indigo-50'} rounded-xl p-5 text-center cursor-pointer hover:opacity-80 transition">
+      ${inner}
+    </div>
+    <input type="file" id="cvFileInput" accept=".pdf" class="hidden" onchange="handleCVFile(this.files[0],'${formId}')">
+    <p id="cvStatus" class="text-xs text-indigo-600 mt-1 hidden font-medium"></p>
+  </div>`;
+}
+
+function modalNuevoCandidato(payload) {
+  const bid=payload.busqueda_id;
+  const pv=App._parsedCV||{};
+  return `
+  <div class="p-6">
+    ${modalHeader('Nuevo candidato')}
+    ${cvDropZoneHtml('candidatoForm','')}
+    <form id="candidatoForm" onsubmit="submitCandidato(event,'${bid}')" class="space-y-4">
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">Nombre *</label><input name="nombre" required value="${pv.nombre||''}" class="${inputCls()}"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Email</label><input name="contacto_email" type="text" value="${pv.email||''}" class="${inputCls()}"></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input name="contacto_telefono" value="${pv.telefono||''}" class="${inputCls()}"></div>
+      </div>
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">LinkedIn <span class="text-gray-400 font-normal">(opcional)</span></label><input name="linkedin" type="text" placeholder="https://linkedin.com/in/..." value="${pv.linkedin||''}" class="${inputCls()}"></div>
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">Etapa inicial</label>
+        <select name="etapa" class="${selectCls()}">${TODAS_ETAPAS.map(s=>`<option>${s}</option>`).join('')}</select>
+      </div>
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">Expectativa salarial <span class="text-gray-400 font-normal">(opcional)</span></label>
+        <div class="flex gap-2"><select name="expectativa_moneda" class="${selectCls()} w-24 flex-shrink-0"><option value="ARS">ARS</option><option value="USD">USD</option></select><input name="expectativa_salarial" type="text" placeholder="Ej: 3300-3500" class="${inputCls()} flex-1"></div></div>
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">Notas</label><textarea name="notas" rows="2" class="${inputCls()} resize-none"></textarea></div>
+      ${renderScorecard(bid,{})}
+      <button type="submit" class="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-700 transition text-sm">Agregar candidato</button>
+    </form>
+  </div>`;
+}
+
+async function submitCandidato(e,busquedaId) {
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const d=Object.fromEntries(fd.entries());
+  if(d.contacto_telefono) d.contacto_telefono=d.contacto_telefono.replace(/\D/g,'');
+  if(d.expectativa_salarial) d.expectativa_salarial=(d.expectativa_moneda||'ARS')+' '+d.expectativa_salarial;
+  delete d.expectativa_moneda;
+  const sc=App._cvScore||{};
+  const data={busqueda_id:busquedaId,id:generateId('C'),...d,cv_pdf_url:App._cvPdfUrl||'',
+    cv_score:sc.score||'', cv_score_justificacion:sc.justificacion||'',
+    cv_score_pros:sc.pros?JSON.stringify(sc.pros):'',
+    cv_score_contras:sc.contras?JSON.stringify(sc.contras):'',
+  };
+  const r=await apiPost({action:'nuevo_candidato',data});
+  if(r.status==='ok'){App._parsedCV=null;App._cvPdfUrl=null;App._cvScore=null;showToast('Candidato agregado ✓');closeModal();await loadSection('pipeline');}
+  else showToast(r.message||'Error','error');
+}
+
+function modalEditarCandidato(id) {
+  const c=App.data.candidatos.find(x=>x.id===id);
+  if(!c) return '<div class="p-6">No encontrado</div>';
+  const sc=tryJSON(c.scorecard,{});
+  const pv=App._parsedCV||{};
+  return `
+  <div class="p-6">
+    ${modalHeader('Editar candidato')}
+    ${cvDropZoneHtml('editCandidatoForm', c.cv_pdf_url||'')}
+    <form id="editCandidatoForm" onsubmit="submitEditCandidato(event,'${id}')" class="space-y-4">
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">Nombre</label><input name="nombre" value="${pv.nombre||c.nombre||''}" class="${inputCls()}"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Email</label><input name="contacto_email" type="text" value="${pv.email||c.contacto_email||''}" class="${inputCls()}"></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Teléfono</label><input name="contacto_telefono" value="${pv.telefono||c.contacto_telefono||''}" class="${inputCls()}"></div>
+      </div>
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">LinkedIn <span class="text-gray-400 font-normal">(opcional)</span></label><input name="linkedin" type="text" value="${pv.linkedin||c.linkedin||''}" class="${inputCls()}"></div>
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">Etapa</label>
+        <select name="etapa" class="${selectCls()}">${TODAS_ETAPAS.map(s=>`<option ${c.etapa===s?'selected':''}>${s}</option>`).join('')}</select>
+      </div>
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">Expectativa salarial</label>
+        <div class="flex gap-2"><select name="expectativa_moneda" class="${selectCls()} w-24 flex-shrink-0"><option value="ARS" ${(c.expectativa_salarial||'').toString().toUpperCase().includes('USD')?'':'selected'}>ARS</option><option value="USD" ${(c.expectativa_salarial||'').toString().toUpperCase().includes('USD')?'selected':''}>USD</option></select><input name="expectativa_salarial" type="text" value="${String(c.expectativa_salarial||'').replace(/^(ARS|USD)\s*/i,'')}" placeholder="Ej: 3300-3500" class="${inputCls()} flex-1"></div></div>
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">Notas</label><textarea name="notas" rows="3" class="${inputCls()} resize-none">${c.notas||''}</textarea></div>
+      ${renderScorecard(c.busqueda_id,sc)}
+      <button type="submit" class="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-700 transition text-sm">Guardar</button>
+    </form>
+  </div>`;
+}
+
+async function submitEditCandidato(e,id) {
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const c=App.data.candidatos.find(x=>x.id===id);
+  const d=Object.fromEntries(fd.entries());
+  if(d.contacto_telefono) d.contacto_telefono=d.contacto_telefono.replace(/\D/g,'');
+  if(d.expectativa_salarial) d.expectativa_salarial=(d.expectativa_moneda||'ARS')+' '+d.expectativa_salarial;
+  delete d.expectativa_moneda;
+  const sc=App._cvScore||{};
+  const data={id,busqueda_id:c?.busqueda_id,...d,cv_pdf_url:App._cvPdfUrl||c?.cv_pdf_url||''};
+  if(App._cvScore){
+    data.cv_score=sc.score??'';
+    data.cv_score_justificacion=sc.justificacion||'';
+    data.cv_score_pros=sc.pros?JSON.stringify(sc.pros):'';
+    data.cv_score_contras=sc.contras?JSON.stringify(sc.contras):'';
+  }
+  const r=await apiPost({action:'editar_candidato',data});
+  if(r.status==='ok'){App._cvPdfUrl=null;App._cvScore=null;showToast('Candidato actualizado ✓');closeModal();await loadSection('pipeline');}
+  else showToast(r.message||'Error','error');
+}
+
+function modalVerCandidato(id) {
+  const c=App.data.candidatos.find(x=>x.id===id);
+  if(!c) return '<div class="p-6">No encontrado</div>';
+  const b=App.data.busquedas.find(x=>x.id===c.busqueda_id)||{};
+  const mustHaves=tryJSON(b.must_haves,[]);
+  const sc=tryJSON(c.scorecard,{});
+  const tel=String(c.contacto_telefono||'').replace(/\D/g,'');
+  const etapaColor={'Interesado a contactar':'bg-blue-100 text-blue-700','Contactado':'bg-indigo-100 text-indigo-700','Entrevista AGB':'bg-purple-100 text-purple-700','Entrevista cliente':'bg-yellow-100 text-yellow-700','2da entrevista cliente':'bg-orange-100 text-orange-700','Oferta':'bg-green-100 text-green-700','Contratado':'bg-green-200 text-green-800','Descartado':'bg-red-100 text-red-700'};
+  const etapaStyle=etapaColor[c.etapa]||'bg-gray-100 text-gray-600';
+
+  const scorecardHtml=mustHaves.length?`
+    <div class="border border-gray-100 rounded-xl overflow-hidden mt-4">
+      <div class="bg-gray-50 px-4 py-2 border-b border-gray-100">
+        <p class="text-xs font-semibold text-gray-700">Scorecard — Must-haves</p>
+      </div>
+      <div class="divide-y divide-gray-50">
+        ${mustHaves.map(mh=>{
+          const v=sc[mh];
+          const badge=v==='si'?'<span class="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">✓ Sí</span>':
+                      v==='no'?'<span class="text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full">✗ No</span>':
+                      v==='quizas'?'<span class="text-xs font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-full">? Quizás</span>':
+                      '<span class="text-xs text-gray-300">Sin evaluar</span>';
+          return `<div class="flex items-center justify-between px-4 py-2.5 gap-3"><p class="text-xs text-gray-700 flex-1">${mh}</p>${badge}</div>`;
+        }).join('')}
+      </div>
+    </div>`:'';
+
+  return `
+  <div class="p-6">
+    <div class="flex items-start justify-between mb-4">
+      <div class="flex-1">
+        <h3 class="text-xl font-bold text-gray-900">${c.nombre}</h3>
+        <span class="inline-block mt-1 text-xs px-2.5 py-1 rounded-full font-medium ${etapaStyle}">${c.etapa||'Sin etapa'}</span>
+      </div>
+      <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none ml-4">×</button>
+    </div>
+
+    ${c.cv_score?`
+    <div class="rounded-xl border p-4 mb-4 ${Number(c.cv_score)>=7?'bg-green-50 border-green-200':Number(c.cv_score)>=5?'bg-yellow-50 border-yellow-200':'bg-red-50 border-red-200'}">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-xs font-bold uppercase tracking-wide ${Number(c.cv_score)>=7?'text-green-800':Number(c.cv_score)>=5?'text-yellow-800':'text-red-800'}">
+          Score IA: ${c.cv_score}/10
+        </p>
+        <span class="text-2xl font-black ${Number(c.cv_score)>=7?'text-green-600':Number(c.cv_score)>=5?'text-yellow-600':'text-red-500'}">${c.cv_score}</span>
+      </div>
+      ${c.cv_score_justificacion?`<p class="text-xs text-gray-700 mb-3">${c.cv_score_justificacion}</p>`:''}
+      <div class="grid grid-cols-2 gap-3">
+        ${c.cv_score_pros?`<div>
+          <p class="text-xs font-semibold text-green-700 mb-1">✓ A favor</p>
+          <ul class="space-y-0.5">${toArr(c.cv_score_pros).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul>
+        </div>`:''}
+        ${c.cv_score_contras?`<div>
+          <p class="text-xs font-semibold text-red-600 mb-1">✗ En contra</p>
+          <ul class="space-y-0.5">${toArr(c.cv_score_contras).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul>
+        </div>`:''}
+      </div>
+    </div>`:''}
+
+    ${c.etapa==='Contratado'&&!b.candidato_placement_id?`
+    <div class="bg-green-50 border border-green-200 rounded-xl p-3 mb-4 flex items-center justify-between gap-3">
+      <p class="text-sm font-semibold text-green-800">🎉 ¿Es un placement? Registralo para cerrar la búsqueda y trackear el ingreso.</p>
+      <button onclick="openModal('placement','${id}')" class="flex-shrink-0 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-green-700 transition">Registrar →</button>
+    </div>`:''}
+
+    <div class="flex flex-wrap gap-2 mb-4">
+      ${tel?`<a href="https://wa.me/${tel}" target="_blank" class="flex items-center gap-1.5 text-sm px-4 py-2 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition">💬 WhatsApp</a>`:''}
+      ${c.contacto_email?`<a href="mailto:${c.contacto_email}" class="flex items-center gap-1.5 text-sm px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition">✉️ Email</a>`:''}
+      ${c.linkedin?`<a href="${c.linkedin.startsWith('http')?c.linkedin:'https://'+c.linkedin}" target="_blank" class="flex items-center gap-1.5 text-sm px-4 py-2 bg-blue-50 text-blue-700 rounded-xl font-medium hover:bg-blue-100 transition">in LinkedIn</a>`:''}
+      ${c.cv_pdf_url?`<a href="${c.cv_pdf_url}" target="_blank" class="flex items-center gap-1.5 text-sm px-4 py-2 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl font-medium hover:bg-amber-100 transition">📄 Ver CV</a>`:''}
+      <button onclick="abrirFichaEntrevista('${id}')" class="flex items-center gap-1.5 text-sm px-4 py-2 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition">📋 Ficha</button>
+      <button onclick="openModal('editar_candidato','${id}')" class="flex items-center gap-1.5 text-sm px-4 py-2 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-700 transition ml-auto">✏️ Editar</button>
+      <button onclick="eliminarCandidato('${id}')" class="flex items-center gap-1.5 text-sm px-3 py-2 bg-red-50 text-red-600 border border-red-100 rounded-xl font-medium hover:bg-red-100 transition">🗑️</button>
+    </div>
+
+    <div class="space-y-3 text-sm">
+      ${c.contacto_email||c.contacto_telefono?`
+      <div class="bg-gray-50 rounded-xl p-4 space-y-1.5">
+        ${c.contacto_email?`<p class="text-gray-600"><span class="font-medium text-gray-800">Email:</span> ${c.contacto_email}</p>`:''}
+        ${c.contacto_telefono?`<p class="text-gray-600"><span class="font-medium text-gray-800">Teléfono:</span> ${c.contacto_telefono}</p>`:''}
+        ${c.recruiter?`<p class="text-gray-600"><span class="font-medium text-gray-800">Recruiter:</span> ${c.recruiter}</p>`:''}
+        <p class="text-gray-400 text-xs">En etapa actual desde ${fmtDate(c.fecha_etapa_actual)}</p>
+      </div>`:''}
+      <div class="bg-amber-50 border border-amber-100 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-semibold text-amber-800">📝 Notas de entrevista</p>
+          <button onclick="guardarNotasCandidato('${id}')" class="text-xs bg-amber-700 text-white px-2.5 py-1 rounded-lg hover:bg-amber-800 transition font-medium">Guardar</button>
+        </div>
+        <textarea id="notasCandidato_${id}" rows="4" class="w-full text-sm text-gray-700 bg-transparent border-none outline-none resize-none placeholder-amber-300" placeholder="Anotá lo que salió de la llamada, red flags, impresiones...">${c.notas||''}</textarea>
+      </div>
+    </div>
+    ${scorecardHtml}
+  </div>`;
+}
+
+function handleCVDrop(e, formId) {
+  e.preventDefault();
+  document.getElementById('cvDropZone')?.classList.remove('border-indigo-400','bg-indigo-50');
+  const file=e.dataTransfer?.files?.[0];
+  if(file && file.type==='application/pdf') handleCVFile(file, formId);
+  else showToast('Solo se aceptan archivos PDF','error');
+}
+
+async function handleCVFile(file, formId) {
+  if(!file) return;
+  const statusEl=document.getElementById('cvStatus');
+  const dropZone=document.getElementById('cvDropZone');
+  if(statusEl){statusEl.classList.remove('hidden');statusEl.textContent='📄 Leyendo CV...';}
+  if(dropZone) dropZone.classList.add('opacity-40','pointer-events-none');
+  try {
+    if(typeof pdfjsLib==='undefined') throw new Error('pdf.js no cargó');
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    // Leer como base64 para subir a Drive
+    const base64=await new Promise((res,rej)=>{
+      const reader=new FileReader();
+      reader.onload=e=>res(e.target.result.split(',')[1]);
+      reader.onerror=rej;
+      reader.readAsDataURL(file);
+    });
+
+    // Extraer texto con pdf.js
+    const arrayBuffer=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(arrayBuffer)}).promise;
+    let text='';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const content=await page.getTextContent();
+      text+=content.items.map(item=>item.str).join(' ')+'\n';
+    }
+    if(!text.trim()) throw new Error('El PDF no tiene texto extraíble');
+
+    if(statusEl) statusEl.textContent='✨ Subiendo a Drive y procesando con IA...';
+    // Get búsqueda context for scoring
+    const busquedaId=App.modal?.payload?.busqueda_id||App.data.busquedaActiva;
+    const busqueda=App.data.busquedas?.find(x=>x.id===busquedaId)||{};
+    const r=await apiPost({action:'parsear_y_guardar_cv',data:{
+      cv_text:text, base64data:base64, filename:file.name,
+      // Pass briefing for scoring
+      puesto:busqueda.puesto||'', cliente:busqueda.cliente||'',
+      must_haves:busqueda.must_haves||'', nice_to_haves:busqueda.nice_to_haves||'',
+      red_flags:busqueda.red_flags||'', criterio_si:busqueda.criterio_si||'',
+      descripcion:busqueda.descripcion||busqueda.contexto||'',
+    }});
+    if(r.status!=='ok') throw new Error(r.message||'Error al procesar');
+
+
+    const {url,score,score_justificacion,score_pros,score_contras,...p}=r.data;
+    App._parsedCV=p;
+    App._cvPdfUrl=url;
+    App._cvScore={score,justificacion:score_justificacion,pros:score_pros,contras:score_contras};
+    App.modal={...App.modal};
+    render();
+    const scoreMsg=score?` · Score IA: ${score}/10`:'';
+    showToast(p.nombre?`CV guardado: ${p.nombre}${scoreMsg} ✓`:'CV guardado — completá los datos que falten');
+  } catch(err) {
+    showToast(err.message,'error');
+    if(statusEl){statusEl.textContent='❌ '+err.message;statusEl.classList.add('text-red-500');}
+    if(dropZone) dropZone.classList.remove('opacity-40','pointer-events-none');
+  }
+}
+
+// ── FICHA DE ENTREVISTA IA ──────────────────────────────────────────────────
+
+async function abrirFichaEntrevista(candidatoId) {
+  const c = App.data.candidatos.find(x => x.id === candidatoId);
+  const b = App.data.busquedas.find(x => x.id === c?.busqueda_id) || {};
+  if (!c) return;
+  // Abrir modal con loading
+  App.modal = { type: 'ficha_entrevista', payload: { candidatoId, estado: 'loading', ficha: null } };
+  render();
+  try {
+    let mustHaves = b.must_haves || '';
+    try { if (mustHaves.startsWith('[')) mustHaves = JSON.parse(mustHaves).join(', '); } catch(e) {}
+    const r = await apiPost({ action: 'ficha_entrevista', data: {
+      candidato_nombre: c.nombre || '',
+      candidato_resumen: c.notas || '',
+      cv_score_pros: c.cv_score_pros || '',
+      cv_score_contras: c.cv_score_contras || '',
+      puesto: b.puesto || '',
+      cliente: b.cliente || '',
+      seniority: b.seniority || '',
+      must_haves: mustHaves,
+      nice_to_haves: b.nice_to_haves || '',
+      criterio_si: b.criterio_si || '',
+      dia_a_dia: b.dia_a_dia || '',
+    }});
+    if (r.status !== 'ok') throw new Error(r.message);
+    App.modal.payload = { candidatoId, estado: 'ok', ficha: r.data };
+  } catch(err) {
+    App.modal.payload = { candidatoId, estado: 'error', error: err.message };
+  }
+  render();
+}
+
+function modalFichaEntrevista(payload) {
+  const { candidatoId, estado, ficha, error } = payload || {};
+  const c = App.data.candidatos.find(x => x.id === candidatoId) || {};
+  const b = App.data.busquedas.find(x => x.id === c.busqueda_id) || {};
+
+  if (estado === 'loading') return `
+  <div class="p-6">
+    ${modalHeader('Ficha de entrevista')}
+    <div class="flex flex-col items-center justify-center py-16 gap-4">
+      <div class="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+      <p class="text-sm text-gray-500">Generando ficha con IA...</p>
+    </div>
+  </div>`;
+
+  if (estado === 'error') return `
+  <div class="p-6">
+    ${modalHeader('Ficha de entrevista')}
+    <p class="text-sm text-red-600 bg-red-50 rounded-xl p-4">${error || 'Error al generar'}</p>
+    <button onclick="abrirFichaEntrevista('${candidatoId}')" class="mt-3 w-full py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium">Reintentar</button>
+  </div>`;
+
+  // Armar texto editable
+  const intro = ficha?.intro_rol || '';
+  const preguntas = ficha?.preguntas || [];
+  let texto = `=== INTRO DEL ROL (para leer al candidato) ===\n\n${intro}\n\n`;
+  preguntas.forEach(grupo => {
+    texto += `--- ${grupo.tema} ---\n`;
+    (grupo.preguntas || []).forEach((p, i) => { texto += `${i+1}. ${p}\n`; });
+    texto += '\n';
+  });
+
+  return `
+  <div class="p-6">
+    ${modalHeader(`Ficha — ${c.nombre || ''} · ${b.puesto || ''}`)}
+    <div class="flex gap-2 mb-3">
+      <button onclick="
+        const ta=document.getElementById('fichaTextarea');
+        navigator.clipboard.writeText(ta.value);
+        this.textContent='¡Copiado!';
+        setTimeout(()=>this.textContent='Copiar todo',1500);
+      " class="flex-1 py-2 bg-purple-600 text-white rounded-xl text-sm font-semibold hover:bg-purple-700 transition">Copiar todo</button>
+      <button onclick="abrirFichaEntrevista('${candidatoId}')" class="py-2 px-4 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition">↻ Regenerar</button>
+    </div>
+    <textarea id="fichaTextarea" class="w-full h-[55vh] text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-xl p-4 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300 font-mono leading-relaxed">${texto.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+  </div>`;
+}
+
+function descargarCandidatoCSV(id) {
+  const c=App.data.candidatos.find(x=>x.id===id);
+  if(!c) return;
+  const b=App.data.busquedas.find(x=>x.id===c.busqueda_id)||{};
+  const campos=[
+    ['Nombre',c.nombre||''],['Email',c.contacto_email||''],['Teléfono',c.contacto_telefono||''],
+    ['LinkedIn',c.linkedin||''],['Etapa',c.etapa||''],['Empresa',b.cliente||''],
+    ['Puesto',b.puesto||''],['Seniority',b.seniority||''],['Recruiter',c.recruiter||''],
+    ['Notas',c.notas||''],['Fecha',c.fecha_etapa_actual||''],
+  ];
+  const csv=campos.map(([k,v])=>`"${k}","${String(v).replace(/"/g,'""')}"`).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`${(c.nombre||'candidato').replace(/\s+/g,'_')}.csv`;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ELIMINAR CANDIDATO / BÚSQUEDA
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// PLACEMENT + CERRAR BÚSQUEDA + COBROS
+// ═══════════════════════════════════════════════════════════════
+function modalPlacement(candidatoId) {
+  const c=App.data.candidatos.find(x=>x.id===candidatoId);
+  if(!c) return '<div class="p-6">No encontrado</div>';
+  const b=App.data.busquedas.find(x=>x.id===c.busqueda_id)||{};
+  const feeCalc=calcFeeClient(b);
+  const moneda=b.moneda||'ARS';
+  const fechaEst=new Date(); fechaEst.setDate(fechaEst.getDate()+30);
+  const isAdmin=App.user?.rol==='admin';
+  const recruitersAsig=(b.recruiter_asignado||'').split(',').map(x=>x.trim()).filter(Boolean);
+
+  if(!isAdmin) {
+    // Recruiter: vista simplificada — solo datos del contratado, sin fees
+    return `
+    <div class="p-6 max-w-md">
+      ${modalHeader('🎉 ¡Placement!')}
+      <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-5">
+        <p class="text-base font-bold text-green-900">${c.nombre}</p>
+        <p class="text-sm text-green-700 mt-0.5">${b.cliente||''} · ${b.puesto||''}</p>
+      </div>
+      <p class="text-xs text-gray-500 mb-4">Completá los datos del contratado. Cabeza recibirá una notificación para definir los fees.</p>
+      <form onsubmit="confirmarPlacement(event,'${candidatoId}')" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 mb-1">Nombre completo del contratado</label>
+          <input name="nombre_contratado" value="${c.nombre||''}" required class="${inputCls()}">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 mb-1">Salario acordado (${moneda}) *</label>
+          <input name="salario_contratado" type="number" required class="${inputCls()}" placeholder="Sueldo bruto">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Fecha de placement</label>
+            <input name="fecha_cierre" type="date" value="${new Date().toISOString().slice(0,10)}" required class="${inputCls()}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Fecha de ingreso</label>
+            <input name="fecha_ingreso_contratado" type="date" class="${inputCls()}">
+          </div>
+        </div>
+        <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
+          📧 Cabeza recibirá un mail con los datos para completar los fees.
+        </div>
+        <div class="flex gap-3">
+          <button type="button" onclick="closeModal()" class="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
+          <button type="submit" class="flex-1 bg-green-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-green-700 transition">Confirmar →</button>
+        </div>
+      </form>
+    </div>`;
+  }
+
+  // Admin: vista completa con fees
+  return `
+  <div class="p-6 max-w-lg">
+    ${modalHeader('🎉 ¡Placement!')}
+    <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-5">
+      <p class="text-base font-bold text-green-900">${c.nombre}</p>
+      <p class="text-sm text-green-700 mt-0.5">${b.cliente||''} · ${b.puesto||''}</p>
+      ${recruitersAsig.length?`<p class="text-xs text-green-600 mt-1">👤 ${recruitersAsig.join(', ')}</p>`:''}
+    </div>
+    <form onsubmit="confirmarPlacement(event,'${candidatoId}')" class="space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 mb-1">Salario del contratado (${moneda}) *</label>
+          <input name="salario_contratado" type="number" required class="${inputCls()}" placeholder="Sueldo bruto"
+            oninput="recalcFees(this,'${moneda}')">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 mb-1">Fecha de ingreso</label>
+          <input name="fecha_ingreso_contratado" type="date" class="${inputCls()}">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-700 mb-1">Fee total al cliente (${moneda}) *</label>
+        <input name="fee_calculado" id="feeTotal" type="number" value="${feeCalc||''}" required class="${inputCls()}" placeholder="0">
+        ${feeCalc?`<p class="text-xs text-gray-400 mt-1">Estimado del briefing: ${fmtMoney(feeCalc,moneda)}</p>`:''}
+      </div>
+      <div class="border-t border-gray-100 pt-4">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Distribución del fee</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Fee recruiter (${moneda})</label>
+            <input name="fee_recruiter" type="number" class="${inputCls()}" placeholder="0">
+            <p class="text-xs text-gray-400 mt-1">${recruitersAsig[0]||'el recruiter'}</p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Fee Cabeza (${moneda}) 🔒</label>
+            <input name="fee_cabeza" type="number" class="${inputCls()} border-amber-200 bg-amber-50" placeholder="0">
+            <p class="text-xs text-amber-600 mt-1">Solo visible para vos</p>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Fecha de placement</label>
+          <input name="fecha_cierre" type="date" value="${new Date().toISOString().slice(0,10)}" required class="${inputCls()}">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Fecha estimada de cobro</label>
+          <input name="fecha_cobro_estimada" type="date" value="${fechaEst.toISOString().slice(0,10)}" class="${inputCls()}">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Garantía (días)</label>
+          <input name="garantia_dias" type="number" value="90" class="${inputCls()}">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Notas</label>
+          <input name="notas_placement" class="${inputCls()}" placeholder="Opcional">
+        </div>
+      </div>
+      <div class="bg-amber-50 border border-amber-100 rounded-lg p-3 text-xs text-amber-800">
+        La búsqueda <strong>${b.cliente||''} · ${b.puesto||''}</strong> quedará cerrada como placement.
+      </div>
+      <div class="flex gap-3">
+        <button type="button" onclick="closeModal()" class="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
+        <button type="submit" class="flex-1 bg-green-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-green-700 transition">Confirmar placement →</button>
+      </div>
+    </form>
+  </div>`;
+}
+
+// Auto-calc fee from salary when user types salary
+function recalcFees(salarioInput, moneda) {
+  const sal=Number(salarioInput.value)||0;
+  // Try to get fee % from current búsqueda
+  const c=App.data.candidatos.find(x=>x.id===App.modal?.payload);
+  const b=c?App.data.busquedas.find(x=>x.id===c.busqueda_id):null;
+  if(b && b.fee_tipo==='%' && sal>0){
+    const fee=sal*(Number(b.fee_valor)||0)/100;
+    const feeEl=document.getElementById('feeTotal');
+    if(feeEl && !feeEl._manuallyEdited) feeEl.value=Math.round(fee);
+  }
+}
+
+async function confirmarPlacement(e, candidatoId) {
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const d=Object.fromEntries(fd.entries());
+  const c=App.data.candidatos.find(x=>x.id===candidatoId);
+  const b=App.data.busquedas.find(x=>x.id===c?.busqueda_id)||{};
+  const vacantes=Number(b.vacantes)||1;
+  // Count contratados AFTER this one (optimistically already updated in local state)
+  const contratados=App.data.candidatos.filter(x=>x.busqueda_id===b.id&&x.etapa==='Contratado').length;
+  const esUltimoPlacement=contratados>=vacantes;
+  const r=await apiPost({action:'confirmar_placement',data:{
+    candidato_id:candidatoId,
+    busqueda_id:c?.busqueda_id,
+    candidato_nombre:d.nombre_contratado||c?.nombre,
+    candidato_placement_id:candidatoId,
+    salario_contratado:d.salario_contratado||0,
+    fee_calculado:d.fee_calculado||0,
+    fee_recruiter:d.fee_recruiter||0,
+    fee_cabeza:isAdmin?(d.fee_cabeza||0):null,
+    garantia_dias:d.garantia_dias||90,
+    notas_placement:d.notas_placement||'',
+    fecha_cierre:d.fecha_cierre,
+    fecha_ingreso_contratado:d.fecha_ingreso_contratado||'',
+    fecha_cobro_estimada:d.fecha_cobro_estimada||'',
+    estado_cobro:'pendiente',
+    recruiter_asignado:b.recruiter_asignado||'',
+    recruiter_nombre:App.user?.nombre||'',
+    cerrar_busqueda:esUltimoPlacement,
+    es_admin:isAdmin,
+    cliente:b.cliente||'',
+    puesto:b.puesto||'',
+    moneda:b.moneda||'ARS',
+  }});
+  if(r.status==='ok'){
+    if(esUltimoPlacement && b.id){
+      const bLocal=App.data.busquedas.find(x=>x.id===b.id);
+      if(bLocal){bLocal.estado='cerrada';bLocal.candidato_placement_id=candidatoId;bLocal.candidato_placement=c?.nombre;}
+      showToast(`🎉 ¡Todas las vacantes cubiertas! Búsqueda cerrada.`);
+    } else {
+      showToast(`✅ Placement ${contratados}/${vacantes} registrado. Quedan ${vacantes-contratados} vacante(s).`);
+    }
+    closeModal();
+    render();
+  } else showToast(r.message||'Error','error');
+}
+
+function modalCerrarBusqueda(bid) {
+  const b=App.data.busquedas.find(x=>x.id===bid);
+  if(!b) return '<div class="p-6">No encontrada</div>';
+  return `
+  <div class="p-6">
+    ${modalHeader('Cerrar búsqueda sin placement')}
+    <div class="bg-gray-50 border border-gray-100 rounded-xl p-3 mb-4">
+      <p class="text-sm font-semibold text-gray-800">${b.cliente} · ${b.puesto}</p>
+    </div>
+    <form onsubmit="submitCerrarBusqueda(event,'${bid}')" class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Motivo de cierre *</label>
+        <select name="motivo_cierre" required class="${selectCls()}">
+          <option value="">Seleccioná un motivo</option>
+          <option>Cliente cerró internamente</option>
+          <option>Ganó la competencia</option>
+          <option>Posición cancelada por el cliente</option>
+          <option>Cliente no contrató a nadie</option>
+          <option>Nos fuimos del proceso</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Fecha de cierre</label>
+          <input name="fecha_cierre" type="date" value="${new Date().toISOString().slice(0,10)}" class="${inputCls()}">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Notas adicionales</label>
+        <textarea name="notas_cierre" rows="2" class="${inputCls()} resize-none" placeholder="Opcional — contexto, qué pasó, qué aprendiste..."></textarea>
+      </div>
+      <div class="flex gap-3">
+        <button type="button" onclick="closeModal()" class="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
+        <button type="submit" class="flex-1 bg-gray-900 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-700 transition">Cerrar búsqueda</button>
+      </div>
+    </form>
+  </div>`;
+}
+
+async function submitCerrarBusqueda(e, bid) {
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const d=Object.fromEntries(fd.entries());
+  const r=await apiPost({action:'cerrar_busqueda',data:{id:bid,...d,estado:'perdida'}});
+  if(r.status==='ok'){
+    const b=App.data.busquedas.find(x=>x.id===bid);
+    if(b){b.estado='perdida';b.motivo_cierre=d.motivo_cierre;b.fecha_cierre=d.fecha_cierre;}
+    closeModal();
+    showToast('Búsqueda cerrada');
+    render();
+  } else showToast(r.message||'Error','error');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RESUMEN PIPELINE
+// ═══════════════════════════════════════════════════════════════
+
+function modalResumenPipeline(bid) {
+  const b = App.data.busquedas.find(x => x.id === bid);
+  if (!b) return '<div class="p-6">No encontrada</div>';
+  setTimeout(() => generarResumenPipeline(bid), 50);
+  return `
+  <div class="p-6 max-w-2xl" id="resumenModal">
+    ${modalHeader('📊 Resumen ejecutivo · ' + b.puesto + ' @ ' + b.cliente)}
+    <div id="resumenContent">
+      <div class="flex flex-col items-center justify-center py-12 text-gray-400">
+        <div class="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p class="text-sm">Generando resumen para el cliente...</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function generarResumenPipeline(bid) {
+  const b = App.data.busquedas.find(x => x.id === bid);
+  if (!b) return;
+  const candidatos = (App.data.candidatos || []).filter(c => c.busqueda_id === bid);
+  const r = await apiPost({ action: 'resumen_pipeline', data: {
+    puesto: b.puesto, cliente: b.cliente, seniority: b.seniority || '',
+    fecha_inicio: b.fecha_creacion || '',
+    candidatos: candidatos.map(c => ({
+      nombre: c.nombre || 'Sin nombre',
+      etapa: c.etapa || 'por_revisar',
+      cv_score: c.cv_score || '',
+      notas: c.notas || '',
+      cv_score_pros: c.cv_score_pros || '',
+      cv_score_contras: c.cv_score_contras || '',
+    }))
+  }});
+  const el = document.getElementById('resumenContent');
+  if (!el) return;
+  if (r.status !== 'ok') {
+    el.innerHTML = `<p class="text-red-500 text-sm p-4">${r.message || 'Error generando resumen'}</p>`;
+    return;
+  }
+  const texto = r.data.resumen || '';
+  el.innerHTML = `
+    <div class="space-y-4">
+      <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-xs font-bold text-emerald-800 uppercase tracking-wide">Resumen listo para enviar</p>
+          <button onclick="copyText(document.getElementById('resumenTexto').value,this)"
+            class="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition font-medium">Copiar</button>
+        </div>
+        <textarea id="resumenTexto" rows="18"
+          class="w-full text-sm text-gray-800 bg-white border border-emerald-100 rounded-lg p-3 leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-emerald-300"
+          >${texto}</textarea>
+      </div>
+      <p class="text-xs text-gray-400 text-center">Podés editar el texto antes de copiarlo.</p>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SOURCING IA
+// ═══════════════════════════════════════════════════════════════
+function modalSourcingIA(bid) {
+  const b=App.data.busquedas.find(x=>x.id===bid);
+  if(!b) return '<div class="p-6">No encontrada</div>';
+  // Si hay cache, cargar directo; si no, generar
+  if (b.sourcing_cache) {
+    try {
+      const cached = JSON.parse(b.sourcing_cache);
+      setTimeout(()=>renderSourcingContent(bid, cached), 50);
+    } catch(e) { setTimeout(()=>generarSourcingIA(bid),50); }
+  } else {
+    setTimeout(()=>generarSourcingIA(bid),50);
+  }
+  return `
+  <div class="p-6 max-w-2xl" id="sourcingModal">
+    ${modalHeader('🔍 Sourcing IA · '+b.puesto+' @ '+b.cliente)}
+    <div class="flex justify-end mb-2">
+      <button onclick="generarSourcingIA('${bid}')" class="text-xs text-gray-400 hover:text-indigo-600 transition">↺ Regenerar</button>
+    </div>
+    <div id="sourcingContent" class="space-y-4">
+      <div class="flex flex-col items-center justify-center py-12 text-gray-400">
+        <div class="w-8 h-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p class="text-sm">${b.sourcing_cache ? 'Cargando...' : 'Generando estrategia de sourcing con IA...'}</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+var _sourcingSaveTimer = null;
+function autoSaveSourcing(bid, field, value) {
+  const b = App.data.busquedas.find(x => x.id === bid);
+  if (!b) return;
+  try {
+    const cache = b.sourcing_cache ? JSON.parse(b.sourcing_cache) : {};
+    cache[field] = value;
+    b.sourcing_cache = JSON.stringify(cache);
+  } catch(e) {}
+  clearTimeout(_sourcingSaveTimer);
+  _sourcingSaveTimer = setTimeout(() => {
+    apiPost({action:'editar_busqueda', data:{id: bid, sourcing_cache: b.sourcing_cache}});
+  }, 1200);
+}
+
+async function generarSourcingIA(bid) {
+  const b=App.data.busquedas.find(x=>x.id===bid);
+  if(!b) return;
+  const el=document.getElementById('sourcingContent');
+  if(el) el.innerHTML=`<div class="flex flex-col items-center justify-center py-12 text-gray-400"><div class="w-8 h-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mb-3"></div><p class="text-sm">Generando con IA...</p></div>`;
+  const r=await apiPost({action:'sourcing_ia',data:{
+    puesto:b.puesto, cliente:b.cliente, seniority:b.seniority||'',
+    industria:b.industria||'', modalidad:b.modalidad||'',
+    ubicacion:b.ubicacion||'Buenos Aires, Argentina',
+    must_haves:b.must_haves||'', nice_to_haves:b.nice_to_haves||'',
+    descripcion:b.descripcion||b.contexto||'',
+  }});
+  if(!document.getElementById('sourcingContent')) return;
+  if(r.status!=='ok'){
+    document.getElementById('sourcingContent').innerHTML=`<p class="text-red-500 text-sm p-4">${r.message||'Error generando sourcing'}</p>`;
+    return;
+  }
+  const s=r.data;
+  // Guardar en sheet y en memoria
+  b.sourcing_cache = JSON.stringify(s);
+  apiPost({action:'editar_busqueda', data:{id: bid, sourcing_cache: b.sourcing_cache}});
+  renderSourcingContent(bid, s);
+}
+
+function renderSourcingContent(bid, s) {
+  const el=document.getElementById('sourcingContent');
+  const b=App.data.busquedas.find(x=>x.id===bid)||{};
+  if(!el) return;
+  el.innerHTML=`
+    <div class="space-y-5">
+
+      <!-- Títulos alternativos -->
+      <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+        <p class="text-xs font-bold text-blue-800 uppercase tracking-wide mb-2">🏷️ Títulos a buscar</p>
+        <div id="sourcingTitulosPanel" class="flex flex-wrap gap-2">
+          ${(s.titulos||[]).map(t=>`
+            <span class="bg-white border border-blue-200 text-blue-800 text-xs px-2.5 py-1.5 rounded-lg font-medium cursor-pointer hover:bg-blue-100 transition" onclick="copyText('${t.replace(/'/g,"\\'")}',this)">${t}</span>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Keywords -->
+      <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+        <p class="text-xs font-bold text-indigo-800 uppercase tracking-wide mb-2">🔑 Keywords para LinkedIn Recruiter</p>
+        <div id="sourcingKeywordsPanel" class="flex flex-wrap gap-2">
+          ${(s.keywords||[]).map(k=>`
+            <span class="bg-white border border-indigo-200 text-indigo-800 text-xs px-2.5 py-1.5 rounded-lg font-medium cursor-pointer hover:bg-indigo-100 transition" onclick="copyText('${k.replace(/'/g,"\\'")}',this)">${k}</span>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Boolean LinkedIn -->
+      <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-bold text-gray-700 uppercase tracking-wide">⚙️ Boolean LinkedIn / Google X-Ray</p>
+          <button onclick="copyText(document.getElementById('boolLinkedIn').textContent,this)" class="text-xs bg-white border border-gray-300 text-gray-600 px-2.5 py-1 rounded-lg hover:bg-gray-100 transition">Copiar</button>
+        </div>
+        <code id="boolLinkedIn" class="block text-xs text-gray-700 bg-white border border-gray-100 rounded-lg p-3 leading-relaxed break-all">${s.boolean_linkedin||'—'}</code>
+      </div>
+
+
+      <!-- Mensaje de conexión -->
+      <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <p class="text-xs font-bold text-green-800 uppercase tracking-wide">💬 Mensaje de conexión LinkedIn (≤300 chars)</p>
+            <p class="text-xs text-green-600 mt-0.5" id="msgLen">${(s.mensaje_conexion||'').length} / 300 caracteres</p>
+          </div>
+          <button onclick="copyText(document.getElementById('msgConexion').value,this)" class="text-xs bg-green-600 text-white px-2.5 py-1 rounded-lg hover:bg-green-700 transition">Copiar</button>
+        </div>
+        <textarea id="msgConexion" rows="4" maxlength="300"
+          oninput="document.getElementById('msgLen').textContent=this.value.length+' / 300 caracteres'; autoSaveSourcing('${bid}','mensaje_conexion',this.value)"
+          class="w-full text-xs text-gray-800 bg-white border border-green-100 rounded-lg p-3 leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-green-300"
+          >${s.mensaje_conexion||''}</textarea>
+      </div>
+
+      <!-- Variante informal -->
+      ${s.mensaje_informal?`
+      <div class="bg-green-50 border border-green-100 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-bold text-green-700 uppercase tracking-wide">💬 Variante más directa</p>
+          <button onclick="copyText(document.getElementById('msgInformal').value,this)" class="text-xs bg-white border border-green-300 text-green-700 px-2.5 py-1 rounded-lg hover:bg-green-50 transition">Copiar</button>
+        </div>
+        <textarea id="msgInformal" rows="3" maxlength="300"
+          oninput="autoSaveSourcing('${bid}','mensaje_informal',this.value)"
+          class="w-full text-xs text-gray-800 bg-white border border-green-100 rounded-lg p-3 leading-relaxed resize-none focus:outline-none"
+          >${s.mensaje_informal}</textarea>
+      </div>`:''}
+
+      <!-- Follow-up sin respuesta -->
+      ${s.followup?`
+      <div class="bg-amber-50 border border-amber-100 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-bold text-amber-800 uppercase tracking-wide">🔄 Follow-up (si no responde en 5 días)</p>
+          <button onclick="copyText(document.getElementById('msgFollowup').value,this)" class="text-xs bg-white border border-amber-300 text-amber-700 px-2.5 py-1 rounded-lg hover:bg-amber-50 transition">Copiar</button>
+        </div>
+        <textarea id="msgFollowup" rows="3" maxlength="300"
+          oninput="autoSaveSourcing('${bid}','followup',this.value)"
+          class="w-full text-xs text-gray-800 bg-white border border-amber-100 rounded-lg p-3 leading-relaxed resize-none focus:outline-none"
+          >${s.followup}</textarea>
+      </div>`:''}
+
+      <!-- Respuesta cuando el candidato dice que sí -->
+      ${s.mensaje_interes?`
+      <div class="bg-purple-50 border border-purple-200 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-1">
+          <div>
+            <p class="text-xs font-bold text-purple-800 uppercase tracking-wide">✅ Respuesta cuando muestra interés</p>
+            <p class="text-xs text-purple-600 mt-0.5">Da contexto del rol + pedí CV + adjuntá la JD</p>
+          </div>
+          <button onclick="copyText(document.getElementById('msgInteres').value,this)" class="text-xs bg-purple-600 text-white px-2.5 py-1 rounded-lg hover:bg-purple-700 transition">Copiar</button>
+        </div>
+        <textarea id="msgInteres" rows="6"
+          oninput="autoSaveSourcing('${bid}','mensaje_interes',this.value)"
+          class="w-full text-xs text-gray-800 bg-white border border-purple-100 rounded-lg p-3 leading-relaxed resize-none focus:outline-none mt-2">${s.mensaje_interes}</textarea>
+        ${b?.jd_pdf_url?`<p class="text-xs text-purple-600 mt-2">📎 JD para adjuntar: <a href="${b.jd_pdf_url}" target="_blank" class="underline">${b.puesto} · ${b.cliente}</a></p>`:'<p class="text-xs text-gray-400 mt-2">💡 No hay JD subida todavía — podés subirla desde el briefing.</p>'}
+      </div>`:''}
+
+
+      <p class="text-xs text-gray-400 text-center">Hacé clic en cualquier keyword o botón "Copiar" para copiarlo al portapapeles.</p>
+
+      <!-- Chat de sourcing -->
+      <div class="border border-gray-200 rounded-xl overflow-hidden">
+        <div class="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+          <p class="text-xs font-bold text-gray-700">💬 Consultá a la IA — actualiza los paneles</p>
+          <p class="text-xs text-gray-400 mt-0.5">Ej: "Mejorá el mensaje de conexión", "Dame más keywords de nicho", "Reescribí el boolean"</p>
+        </div>
+        <div id="sourcingChatHistory" class="p-4 space-y-3 max-h-64 overflow-y-auto bg-white"></div>
+        <div class="border-t border-gray-100 p-3 flex gap-2 bg-white">
+          <input id="sourcingChatInput" type="text" placeholder="Preguntá o grabá audio con el mic 🎤"
+            class="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensajeSourcing('${bid}');}">
+          <button id="sourcingMicBtn" onclick="toggleSourcingRecording('${bid}')"
+            class="px-3 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm hover:bg-gray-200 transition" title="Grabar audio">🎤</button>
+          <button onclick="enviarMensajeSourcing('${bid}')" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition">Enviar</button>
+        </div>
+      </div>
+
+    </div>`;
+}
+
+// Estado del chat de sourcing
+App._sourcingCtx = null; // {bid, sourcing, history}
+
+async function enviarMensajeSourcing(bid) {
+  const input = document.getElementById('sourcingChatInput');
+  const histEl = document.getElementById('sourcingChatHistory');
+  const msg = input?.value?.trim();
+  if (!msg || !histEl) return;
+
+  const b = App.data.busquedas.find(x => x.id === bid) || {};
+  if (!App._sourcingCtx || App._sourcingCtx.bid !== bid) {
+    App._sourcingCtx = { bid, history: [] };
+  }
+
+  // Mostrar mensaje del usuario
+  input.value = '';
+  input.disabled = true;
+  histEl.innerHTML += `<div class="flex justify-end"><div class="bg-blue-600 text-white text-xs rounded-2xl rounded-tr-sm px-3 py-2 max-w-[80%]">${msg}</div></div>`;
+  histEl.innerHTML += `<div id="sourcingTyping" class="flex justify-start"><div class="bg-gray-100 text-gray-500 text-xs rounded-2xl rounded-tl-sm px-3 py-2">...</div></div>`;
+  histEl.scrollTop = histEl.scrollHeight;
+
+  App._sourcingCtx.history.push({ role: 'user', content: msg });
+
+  try {
+    const r = await apiPost({ action: 'sourcing_chat', data: {
+      puesto: b.puesto, cliente: b.cliente, seniority: b.seniority || '',
+      modalidad: b.modalidad || '', must_haves: b.must_haves || '',
+      ubicacion: b.ubicacion || 'Buenos Aires, Argentina',
+      history: App._sourcingCtx.history,
+    }});
+
+    const reply = r.status === 'ok' ? (r.data.respuesta || r.data) : 'Error: ' + (r.message || 'no se pudo responder');
+    const updates = (r.status === 'ok' && r.data.updates) ? r.data.updates : {};
+    App._sourcingCtx.history.push({ role: 'assistant', content: String(reply) });
+
+    document.getElementById('sourcingTyping')?.remove();
+    histEl.innerHTML += `<div class="flex justify-start"><div class="bg-gray-100 text-gray-800 text-xs rounded-2xl rounded-tl-sm px-3 py-2 max-w-[85%] leading-relaxed whitespace-pre-wrap">${String(reply)}</div></div>`;
+
+    // Aplicar updates a los paneles
+    if (updates.mensaje_conexion) {
+      const el = document.getElementById('msgConexion');
+      if (el) { el.value = updates.mensaje_conexion; document.getElementById('msgLen').textContent = updates.mensaje_conexion.length + ' / 300 caracteres'; }
+      histEl.innerHTML += `<div class="text-xs text-green-600 px-2 py-0.5">✓ Mensaje de conexión actualizado</div>`;
+    }
+    if (updates.mensaje_informal) {
+      const el = document.getElementById('msgInformal');
+      if (el) el.value = updates.mensaje_informal;
+    }
+    if (updates.followup) {
+      const el = document.getElementById('msgFollowup');
+      if (el) el.value = updates.followup;
+      histEl.innerHTML += `<div class="text-xs text-green-600 px-2 py-0.5">✓ Follow-up actualizado</div>`;
+    }
+    if (updates.boolean_linkedin) {
+      const el = document.getElementById('boolLinkedIn');
+      if (el) el.textContent = updates.boolean_linkedin;
+      histEl.innerHTML += `<div class="text-xs text-green-600 px-2 py-0.5">✓ Boolean actualizado</div>`;
+    }
+    if (updates.keywords && updates.keywords.length) {
+      const el = document.getElementById('sourcingKeywordsPanel');
+      if (el) el.innerHTML = updates.keywords.map(k=>`<span class="bg-white border border-indigo-200 text-indigo-800 text-xs px-2.5 py-1.5 rounded-lg font-medium cursor-pointer hover:bg-indigo-100 transition" onclick="copyText('${k.replace(/'/g,"\\'")}',this)">${k}</span>`).join('');
+      histEl.innerHTML += `<div class="text-xs text-green-600 px-2 py-0.5">✓ Keywords actualizadas</div>`;
+    }
+    if (updates.titulos && updates.titulos.length) {
+      const el = document.getElementById('sourcingTitulosPanel');
+      if (el) el.innerHTML = updates.titulos.map(t=>`<span class="bg-white border border-blue-200 text-blue-800 text-xs px-2.5 py-1.5 rounded-lg font-medium cursor-pointer hover:bg-blue-100 transition" onclick="copyText('${t.replace(/'/g,"\\'")}',this)">${t}</span>`).join('');
+      histEl.innerHTML += `<div class="text-xs text-green-600 px-2 py-0.5">✓ Títulos actualizados</div>`;
+    }
+    histEl.scrollTop = histEl.scrollHeight;
+  } catch(e) {
+    document.getElementById('sourcingTyping')?.remove();
+    histEl.innerHTML += `<div class="text-xs text-red-500 px-2">${e.message}</div>`;
+  }
+  input.disabled = false;
+  input.focus();
+}
+
+// Grabación de audio para chat de sourcing
+var _sourcingMediaRecorder = null;
+var _sourcingAudioChunks = [];
+
+async function toggleSourcingRecording(bid) {
+  const btn = document.getElementById('sourcingMicBtn');
+  if (_sourcingMediaRecorder && _sourcingMediaRecorder.state === 'recording') {
+    _sourcingMediaRecorder.stop();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    _sourcingAudioChunks = [];
+    _sourcingMediaRecorder = new MediaRecorder(stream);
+    _sourcingMediaRecorder.ondataavailable = e => _sourcingAudioChunks.push(e.data);
+    _sourcingMediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      if (btn) { btn.textContent = '🎤'; btn.className = 'px-3 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm hover:bg-gray-200 transition'; }
+      const blob = new Blob(_sourcingAudioChunks, { type: 'audio/webm' });
+      const base64 = await new Promise(res => {
+        const reader = new FileReader();
+        reader.onload = e => res(e.target.result.split(',')[1]);
+        reader.readAsDataURL(blob);
+      });
+      const input = document.getElementById('sourcingChatInput');
+      if (input) { input.value = '🎤 Transcribiendo...'; input.disabled = true; }
+      try {
+        const r = await apiPost({ action: 'sourcing_transcribir', data: { audio: base64 } });
+        if (r.status === 'ok' && r.data.texto) {
+          input.value = r.data.texto;
+          input.disabled = false;
+          enviarMensajeSourcing(bid);
+        } else {
+          input.value = '';
+          input.disabled = false;
+          showToast('No se pudo transcribir el audio', 'error');
+        }
+      } catch(e) {
+        if (input) { input.value = ''; input.disabled = false; }
+        showToast('Error al transcribir: ' + e.message, 'error');
+      }
+    };
+    _sourcingMediaRecorder.start();
+    if (btn) { btn.textContent = '⏹️'; btn.className = 'px-3 py-2 bg-red-100 text-red-600 rounded-xl text-sm hover:bg-red-200 transition'; }
+  } catch(e) {
+    showToast('No se pudo acceder al micrófono: ' + e.message, 'error');
+  }
+}
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(()=>{
+    const orig=btn?.textContent;
+    if(btn){btn.textContent='✓ Copiado';setTimeout(()=>{btn.textContent=orig;},1500);}
+  });
+}
+
+function modalCompletarFees(bid) {
+  const b=App.data.busquedas.find(x=>x.id===bid);
+  if(!b) return '<div class="p-6">No encontrada</div>';
+  const moneda=b.moneda||'ARS';
+  const fechaEst=new Date(); fechaEst.setDate(fechaEst.getDate()+30);
+  return `
+  <div class="p-6 max-w-md">
+    ${modalHeader('Completar fees · '+b.cliente+' · '+b.puesto)}
+    <div class="bg-green-50 border border-green-100 rounded-xl p-3 mb-4">
+      <p class="text-sm font-semibold text-green-900">${b.candidato_placement||'—'}</p>
+      <p class="text-xs text-green-700">Salario: ${b.salario_contratado?fmtMoney(b.salario_contratado,moneda):'no informado'}</p>
+      <p class="text-xs text-green-600">Placement: ${fmtDate(b.fecha_cierre)} · Ingreso: ${b.fecha_ingreso_contratado?fmtDate(b.fecha_ingreso_contratado):'a confirmar'}</p>
+    </div>
+    <form onsubmit="submitCompletarFees(event,'${bid}')" class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-gray-700 mb-1">Fee total al cliente (${moneda}) *</label>
+        <input name="fee_calculado" type="number" value="${b.fee_calculado||''}" required class="${inputCls()}" placeholder="0">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Fee recruiter (${moneda})</label>
+          <input name="fee_recruiter" type="number" value="${b.fee_recruiter||''}" class="${inputCls()}" placeholder="0">
+          <p class="text-xs text-gray-400 mt-1">${b.recruiter_asignado||'—'}</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Fee Cabeza (${moneda}) 🔒</label>
+          <input name="fee_cabeza" type="number" value="${b.fee_cabeza||''}" class="${inputCls()} border-amber-200 bg-amber-50" placeholder="0">
+          <p class="text-xs text-amber-600 mt-1">Solo visible para vos</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Fecha estimada de cobro</label>
+          <input name="fecha_cobro_estimada" type="date" value="${b.fecha_cobro_estimada||fechaEst.toISOString().slice(0,10)}" class="${inputCls()}">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Garantía (días)</label>
+          <input name="garantia_dias" type="number" value="${b.garantia_dias||90}" class="${inputCls()}">
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button type="button" onclick="closeModal()" class="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">Cancelar</button>
+        <button type="submit" class="flex-1 bg-gray-900 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-700 transition">Guardar fees →</button>
+      </div>
+    </form>
+  </div>`;
+}
+
+async function submitCompletarFees(e, bid) {
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const d=Object.fromEntries(fd.entries());
+  const r=await apiPost({action:'editar_busqueda',data:{id:bid,...d}});
+  if(r.status==='ok'){
+    const b=App.data.busquedas.find(x=>x.id===bid);
+    if(b){Object.assign(b,d);}
+    showToast('Fees guardados ✓');
+    closeModal();
+    render();
+  } else showToast(r.message||'Error','error');
+}
+
+async function marcarCobrado(bid) {
+  const fechaHoy=new Date().toISOString().slice(0,10);
+  const r=await apiPost({action:'marcar_cobrado',data:{id:bid,fecha_cobro_real:fechaHoy,estado_cobro:'cobrado'}});
+  if(r.status==='ok'){
+    const b=App.data.busquedas.find(x=>x.id===bid);
+    if(b){b.estado_cobro='cobrado';b.fecha_cobro_real=fechaHoy;}
+    showToast('Cobro registrado ✓');
+    render();
+  } else showToast(r.message||'Error','error');
+}
+
+async function guardarNotasCandidato(id) {
+  const notas=document.getElementById('notasCandidato_'+id)?.value||'';
+  const c=App.data.candidatos.find(x=>x.id===id);
+  if(!c) return;
+  const r=await apiPost({action:'editar_candidato',data:{id,busqueda_id:c.busqueda_id,notas}});
+  if(r.status==='ok'){c.notas=notas;showToast('Notas guardadas ✓');}
+  else showToast(r.message||'Error','error');
+}
+
+async function eliminarCandidato(id) {
+  const c=App.data.candidatos.find(x=>x.id===id);
+  if(!c) return;
+  if(!confirm(`¿Eliminar a ${c.nombre}? Esta acción no se puede deshacer.`)) return;
+  const r=await apiPost({action:'eliminar_candidato',data:{id}});
+  if(r.status==='ok'){
+    App.data.candidatos=App.data.candidatos.filter(x=>x.id!==id);
+    closeModal();
+    showToast('Candidato eliminado');
+    render();
+  } else showToast(r.message||'Error al eliminar','error');
+}
+
+function modalConfirmarEliminarBusqueda(id) {
+  const b=App.data.busquedas.find(x=>x.id===id);
+  if(!b) return '<div class="p-6">No encontrada</div>';
+  return `
+  <div class="p-6">
+    ${modalHeader('Eliminar búsqueda')}
+    <div class="bg-red-50 border border-red-100 rounded-xl p-4 mb-4">
+      <p class="text-sm font-semibold text-red-800">${b.cliente} · ${b.puesto}</p>
+      <p class="text-xs text-red-600 mt-1">Esto eliminará la búsqueda del sistema. Los candidatos asociados quedarán sin búsqueda.</p>
+    </div>
+    <form onsubmit="eliminarBusquedaConfirmada(event,'${id}')" class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Motivo de cierre *</label>
+        <select name="motivo" required class="${selectCls()}">
+          <option value="">Seleccioná un motivo</option>
+          <option value="Posición cubierta internamente">Posición cubierta internamente</option>
+          <option value="Cliente canceló la búsqueda">Cliente canceló la búsqueda</option>
+          <option value="Placement realizado">Placement realizado</option>
+          <option value="Búsqueda on hold indefinido">Búsqueda on hold indefinido</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Notas adicionales</label>
+        <textarea name="notas_cierre" rows="2" class="${inputCls()} resize-none" placeholder="Opcional..."></textarea>
+      </div>
+      <div class="flex gap-3">
+        <button type="button" onclick="closeModal()" class="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition">Cancelar</button>
+        <button type="submit" class="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-red-700 transition">Eliminar búsqueda</button>
+      </div>
+    </form>
+  </div>`;
+}
+
+async function eliminarBusquedaConfirmada(e, id) {
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const motivo=fd.get('motivo');
+  const notas_cierre=fd.get('notas_cierre');
+  const r=await apiPost({action:'eliminar_busqueda',data:{id,motivo,notas_cierre}});
+  if(r.status==='ok'){
+    App.data.busquedas=App.data.busquedas.filter(x=>x.id!==id);
+    if(App.data.busquedaActiva===id) App.data.busquedaActiva=App.data.busquedas[0]?.id||null;
+    closeModal();
+    showToast('Búsqueda eliminada');
+    render();
+  } else showToast(r.message||'Error al eliminar','error');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL — NUEVA / EDITAR BÚSQUEDA
+// ═══════════════════════════════════════════════════════════════
+function modalNuevaBusqueda(payload) {
+  const lead=payload?.lead;
+  const recruiters=App.data.equipoNombres;
+  return `
+  <div class="p-6">
+    ${modalHeader(lead?'Aprobar lead y crear búsqueda':'Nueva búsqueda')}
+    ${lead?`<div class="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 mb-4 text-sm text-blue-800">Lead: <strong>${lead.empresa}</strong> · ${lead.puesto}</div>`:''}
+
+    ${!lead?`
+    <div id="jdDropZone" onclick="document.getElementById('jdFileInput').click()"
+      ondragover="event.preventDefault();this.classList.add('border-indigo-400','bg-indigo-50')"
+      ondragleave="this.classList.remove('border-indigo-400','bg-indigo-50')"
+      ondrop="handleJDDrop(event)"
+      class="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50 transition mb-5">
+      <p class="text-2xl mb-1">📄</p>
+      <p class="text-sm font-semibold text-gray-700">Subí la JD para completar automáticamente</p>
+      <p class="text-xs text-gray-400 mt-1">Arrastrá un PDF o hacé clic — la IA va a pre-llenar el formulario</p>
+      <input type="file" id="jdFileInput" accept=".pdf" class="hidden" onchange="handleJDFile(this.files[0])">
+    </div>
+    <div id="jdParseStatus" class="hidden mb-4 text-sm text-center text-indigo-600 font-medium"></div>
+    `:''}
+
+    <form id="busquedaForm" onsubmit="submitBusqueda(event)" class="space-y-3">
+      <input type="hidden" name="lead_id" value="${lead?.id||''}">
+      <input type="hidden" name="_briefing" value="">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="col-span-2"><label class="block text-xs font-medium text-gray-600 mb-1">Cliente *</label><input name="cliente" required value="${lead?.empresa||''}" class="${inputCls()}"></div>
+        <div class="col-span-2"><label class="block text-xs font-medium text-gray-600 mb-1">Puesto *</label><input name="puesto" required value="${lead?.puesto||''}" class="${inputCls()}"></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Seniority</label>
+          <select name="seniority" class="${selectCls()}">${['','Junior','Semi-senior','Senior','Lead','Manager','Director'].map(s=>`<option value="${s}" ${lead?.seniority===s?'selected':''}>${s||'—'}</option>`).join('')}</select></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Prioridad</label>
+          <select name="prioridad" class="${selectCls()}"><option value="alta">Alta</option><option value="media" selected>Media</option><option value="baja">Baja</option></select></div>
+        <div class="col-span-2"><label class="block text-xs font-medium text-gray-600 mb-1">Recruiter(s)</label>
+          <div class="flex flex-wrap gap-3 mt-1">${(App.data.recruiters||[]).map(r=>`
+            <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+              <input type="checkbox" name="recruiter_asignado" value="${r.nombre}" class="rounded border-gray-300 text-indigo-600"> ${r.nombre}
+            </label>`).join('')}
+          </div></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Modalidad</label>
+          <select name="modalidad" class="${selectCls()}">${['','presencial','híbrido','remoto'].map(m=>`<option value="${m}" ${lead?.modalidad===m?'selected':''}>${m||'—'}</option>`).join('')}</select></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Moneda</label>
+          <select name="moneda" class="${selectCls()}">${['ARS','USD'].map(m=>`<option ${lead?.moneda===m?'selected':''}>${m}</option>`).join('')}</select></div>
+        ${App.user?.rol==='admin'?`
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Fee tipo</label>
+          <select name="fee_tipo" id="feeTipo" onchange="toggleFeeBase()" class="${selectCls()}"><option value="%">% del salario</option><option value="fijo">Monto fijo</option></select></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Fee valor</label><input name="fee_valor" type="number" class="${inputCls()}" placeholder="ej. 12"></div>
+        <div id="feeBaseWrap" class="col-span-2 grid grid-cols-2 gap-3">
+          <div><label class="block text-xs font-medium text-gray-600 mb-1">Base de cálculo</label><input name="fee_base" type="number" class="${inputCls()}" placeholder="Salario bruto"></div>
+          <div><label class="block text-xs font-medium text-gray-600 mb-1">Período</label>
+            <select name="fee_periodo" class="${selectCls()}"><option value="mensual">Mensual</option><option value="anual">Anual</option></select></div>
+        </div>`:''}
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Fecha inicio</label><input name="fecha_inicio" type="date" value="${new Date().toISOString().slice(0,10)}" class="${inputCls()}"></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Vacantes a cubrir</label><input name="vacantes" type="number" min="1" value="1" class="${inputCls()}" placeholder="1"></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Banda salarial mín.</label><input name="banda_salarial_min" type="number" value="${lead?.banda_salarial_min||''}" class="${inputCls()}"></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Banda salarial máx.</label><input name="banda_salarial_max" type="number" value="${lead?.banda_salarial_max||''}" class="${inputCls()}"></div>
+        <div class="col-span-2"><label class="block text-xs font-medium text-gray-600 mb-1">Estado</label>
+          <select name="estado" class="${selectCls()}"><option value="activa" selected>Activa</option><option value="pausada">Pausada</option></select></div>
+      </div>
+      <p class="text-xs text-gray-400">💡 Después de crear la búsqueda podés completar el briefing desde la vista de Pipeline.</p>
+      <button type="submit" class="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-700 transition text-sm mt-2">${lead?'Aprobar y crear':'Crear búsqueda'}</button>
+    </form>
+  </div>`;
+}
+function toggleFeeBase(){const t=document.getElementById('feeTipo')?.value,w=document.getElementById('feeBaseWrap');if(w)w.style.display=t==='%'?'':'none';}
+
+async function submitBusqueda(e) {
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const d=Object.fromEntries(fd.entries());
+  // Collect multi-checkbox recruiter_asignado
+  d.recruiter_asignado=fd.getAll('recruiter_asignado').join(', ');
+  const leadId=d.lead_id; delete d.lead_id;
+  const briefingRaw=d._briefing; delete d._briefing;
+  const briefing=tryJSON(briefingRaw,{});
+  const busqueda={...d,...briefing,id:generateId('B')};
+  let r;
+  if(leadId) r=await apiPost({action:'aprobar_lead',data:{lead_id:leadId,busqueda}});
+  else r=await apiPost({action:'nueva_busqueda',data:busqueda});
+  if(r.status==='ok'){
+    showToast('Búsqueda creada ✓');
+    closeModal();
+    // Si vino con briefing del PDF, ir directo al pipeline
+    if(briefingRaw) { App.data.busquedaActiva=busqueda.id; await loadSection('pipeline'); }
+    else await loadSection(leadId?'leads':'busquedas');
+  } else showToast(r.message||'Error','error');
+}
+
+function modalEditarBusqueda(id) {
+  const b=App.data.busquedas.find(x=>x.id===id);
+  if(!b) return '<div class="p-6">No encontrado</div>';
+  return `
+  <div class="p-6">
+    ${modalHeader('Editar búsqueda')}
+    <form id="editBusquedaForm" onsubmit="submitEditBusqueda(event,'${id}')" class="space-y-3">
+      ${['cliente','puesto','seniority','modalidad','jd_link'].map(f=>`
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">${f.replace(/_/g,' ')}</label><input name="${f}" value="${b[f]||''}" class="${inputCls()}"></div>`).join('')}
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">Recruiter(s)</label>
+        <div class="flex flex-wrap gap-3 mt-1">${(App.data.recruiters||[]).map(r=>{
+          const asignados=(b.recruiter_asignado||'').split(',').map(x=>x.trim());
+          const checked=asignados.includes(r.nombre)?'checked':'';
+          return `<label class="flex items-center gap-1.5 text-sm cursor-pointer"><input type="checkbox" name="recruiter_asignado" value="${r.nombre}" ${checked} class="rounded border-gray-300 text-indigo-600"> ${r.nombre}</label>`;
+        }).join('')}</div>
+      </div>
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">Estado</label>
+        <select name="estado" class="${selectCls()}">${['activa','pausada','cerrada','perdida'].map(s=>`<option ${b.estado===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div><label class="block text-xs font-medium text-gray-600 mb-1">Prioridad</label>
+        <select name="prioridad" class="${selectCls()}">${['alta','media','baja'].map(s=>`<option ${b.prioridad===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Fee tipo</label>
+          <select name="fee_tipo" class="${selectCls()}"><option value="%" ${b.fee_tipo==='%'?'selected':''}>%</option><option value="fijo" ${b.fee_tipo==='fijo'?'selected':''}>Fijo</option></select></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Fee valor</label><input name="fee_valor" type="number" value="${b.fee_valor||''}" class="${inputCls()}"></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Fee base</label><input name="fee_base" type="number" value="${b.fee_base||''}" class="${inputCls()}"></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Fee período</label>
+          <select name="fee_periodo" class="${selectCls()}"><option value="mensual" ${b.fee_periodo==='mensual'?'selected':''}>Mensual</option><option value="anual" ${b.fee_periodo==='anual'?'selected':''}>Anual</option></select></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Moneda</label>
+          <select name="moneda" class="${selectCls()}"><option value="ARS" ${b.moneda==='ARS'?'selected':''}>ARS</option><option value="USD" ${b.moneda==='USD'?'selected':''}>USD</option></select></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Fecha cierre</label><input name="fecha_cierre" type="date" value="${b.fecha_cierre||''}" class="${inputCls()}"></div>
+        <div><label class="block text-xs font-medium text-gray-600 mb-1">Vacantes a cubrir</label><input name="vacantes" type="number" min="1" value="${b.vacantes||1}" class="${inputCls()}"></div>
+      </div>
+      <button type="submit" class="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-700 transition text-sm mt-2">Guardar cambios</button>
+    </form>
+  </div>`;
+}
+async function submitEditBusqueda(e,id) {
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const d=Object.fromEntries(fd.entries());
+  d.recruiter_asignado=fd.getAll('recruiter_asignado').join(', ');
+  const r=await apiPost({action:'editar_busqueda',data:{id,...d}});
+  if(r.status==='ok'){showToast('Búsqueda actualizada ✓');closeModal();await loadSection('busquedas');}
+  else showToast(r.message||'Error','error');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LEAD FORM (landing)
+// ═══════════════════════════════════════════════════════════════
+async function submitLead(e) {
+  e.preventDefault();
+  const btn=document.getElementById('leadSubmitBtn');
+  btn.disabled=true; btn.textContent='Enviando...';
+  try {
+    const fd=new FormData(e.target);
+    const r=await apiPostPublic({action:'nuevo_lead',data:Object.fromEntries(fd.entries())});
+    if(r.status==='ok'){e.target.reset();showToast('¡Recibimos tu consulta! Te contactamos pronto.');}
+    else showToast(r.message||'Error al enviar','error');
+  } catch(err){showToast('Error de conexión','error');}
+  btn.disabled=false; btn.textContent='Enviar consulta';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════════════════════════
+function attachEvents() {}
+
+render();
+</script>
+</body>
+</html>
