@@ -85,6 +85,7 @@ async function apiPostPublic(body) {
 function tryJSON(str, fallback) { try { return JSON.parse(str); } catch { return fallback; } }
 function toArr(str) { if (!str) return []; const p = tryJSON(str, null); if (Array.isArray(p)) return p; return String(str).split(/\n|•/).map(s=>s.trim()).filter(Boolean); }
 function fmtMoney(n, moneda='') { if (!n && n!==0) return '—'; return (moneda?moneda+' ':'')+Number(n).toLocaleString('es-AR'); }
+function normScore(s) { const n=Number(s); if(!n&&n!==0) return null; return n>10?Math.round(n/10*10)/10:n; }
 function fmtDate(s) { if(!s) return '—'; return new Date(s).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}); }
 function badge(t,c) { return `<span class="inline-block px-2 py-0.5 rounded text-xs font-medium ${c}">${t}</span>`; }
 function estadoBadge(e) {
@@ -612,8 +613,8 @@ function renderKanbanCol(etapa, candidatos, bid, busqueda, todas) {
           ${c.contacto_email?`<p class="text-xs text-gray-400 truncate">${c.contacto_email}</p>`:''}
           ${(()=>{const dias=c.fecha_etapa_actual?Math.floor((Date.now()-new Date(c.fecha_etapa_actual))/(1000*60*60*24)):null;return dias!==null&&dias>5&&c.etapa!=='Descartado'&&c.etapa!=='Contratado'?`<p class="text-xs text-orange-500 font-medium mt-1">⚠ ${dias}d sin movimiento</p>`:`<p class="text-xs text-gray-300 mt-1">${fmtDate(c.fecha_etapa_actual)}</p>`;})()}
           ${c.cv_score?`<div class="flex items-center gap-1.5 mt-1.5">
-            <span class="text-xs font-bold px-2 py-0.5 rounded-full ${Number(c.cv_score)>=7?'bg-green-100 text-green-700':Number(c.cv_score)>=5?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-600'}">
-              IA ${c.cv_score}/10
+            <span class="text-xs font-bold px-2 py-0.5 rounded-full ${normScore(c.cv_score)>=7?'bg-green-100 text-green-700':normScore(c.cv_score)>=5?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-600'}">
+              IA ${normScore(c.cv_score)}/10
             </span>
           </div>`:''}
           ${c.expectativa_salarial?`<p class="text-xs text-gray-400 mt-1">💰 ${c.expectativa_salarial}</p>`:''}
@@ -1439,7 +1440,7 @@ function modalVerCandidato(id) {
   const scorecardHtml=mustHaves.length?`
     <div class="border border-gray-100 rounded-xl overflow-hidden mt-4">
       <div class="bg-gray-50 px-4 py-2 border-b border-gray-100">
-        <p class="text-xs font-semibold text-gray-700">Scorecard — Must-haves</p>
+        <p class="text-xs font-semibold text-gray-700">Scorecard</p>
       </div>
       <div class="divide-y divide-gray-50">
         ${mustHaves.map(mh=>{
@@ -1464,12 +1465,12 @@ function modalVerCandidato(id) {
     </div>
 
     ${c.cv_score?`
-    <div class="rounded-xl border p-4 mb-4 ${Number(c.cv_score)>=7?'bg-green-50 border-green-200':Number(c.cv_score)>=5?'bg-yellow-50 border-yellow-200':'bg-red-50 border-red-200'}">
+    <div class="rounded-xl border p-4 mb-4 ${normScore(c.cv_score)>=7?'bg-green-50 border-green-200':normScore(c.cv_score)>=5?'bg-yellow-50 border-yellow-200':'bg-red-50 border-red-200'}">
       <div class="flex items-center justify-between mb-2">
-        <p class="text-xs font-bold uppercase tracking-wide ${Number(c.cv_score)>=7?'text-green-800':Number(c.cv_score)>=5?'text-yellow-800':'text-red-800'}">
-          Score IA: ${c.cv_score}/10
+        <p class="text-xs font-bold uppercase tracking-wide ${normScore(c.cv_score)>=7?'text-green-800':normScore(c.cv_score)>=5?'text-yellow-800':'text-red-800'}">
+          Score IA: ${normScore(c.cv_score)}/10
         </p>
-        <span class="text-2xl font-black ${Number(c.cv_score)>=7?'text-green-600':Number(c.cv_score)>=5?'text-yellow-600':'text-red-500'}">${c.cv_score}</span>
+        <span class="text-2xl font-black ${normScore(c.cv_score)>=7?'text-green-600':normScore(c.cv_score)>=5?'text-yellow-600':'text-red-500'}">${normScore(c.cv_score)}</span>
       </div>
       ${c.cv_score_justificacion?`<p class="text-xs text-gray-700 mb-3">${c.cv_score_justificacion}</p>`:''}
       <div class="grid grid-cols-2 gap-3">
