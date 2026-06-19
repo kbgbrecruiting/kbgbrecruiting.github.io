@@ -1563,7 +1563,7 @@ function modalVerCandidato(id) {
     <div id="scoreBlock_${id}" class="rounded-xl border p-4 mb-4 ${c.cv_score?(normScore(c.cv_score)>=7?'bg-green-50 border-green-200':normScore(c.cv_score)>=5?'bg-yellow-50 border-yellow-200':'bg-red-50 border-red-200'):'bg-gray-50 border-gray-200'}">
       ${c.cv_score?`
       <div class="flex items-center justify-between mb-2">
-        <p class="text-xs font-bold uppercase tracking-wide ${normScore(c.cv_score)>=7?'text-green-800':normScore(c.cv_score)>=5?'text-yellow-800':'text-red-800'}">Score IA: ${normScore(c.cv_score)}/10</p>
+        <p data-score-label class="text-xs font-bold uppercase tracking-wide ${normScore(c.cv_score)>=7?'text-green-800':normScore(c.cv_score)>=5?'text-yellow-800':'text-red-800'}">Score IA: ${normScore(c.cv_score)}/10</p>
         <span class="text-2xl font-black ${normScore(c.cv_score)>=7?'text-green-600':normScore(c.cv_score)>=5?'text-yellow-600':'text-red-500'}">${normScore(c.cv_score)}</span>
       </div>
       ${c.cv_score_justificacion?`<p class="text-xs text-gray-700 mb-3">${c.cv_score_justificacion}</p>`:''}
@@ -1574,7 +1574,7 @@ function modalVerCandidato(id) {
       <!-- Chat recalibración -->
       <button onclick="toggleScoreChat('${id}')" class="w-full text-xs text-gray-500 border border-dashed border-gray-300 rounded-lg py-1.5 hover:border-gray-400 hover:text-gray-700 transition mt-1">💬 Discutir este análisis con la IA</button>
       <div id="scoreChat_${id}" class="hidden mt-3">
-        <div id="scoreChatHistory_${id}" class="space-y-2 mb-3 max-h-48 overflow-y-auto"></div>
+        <div id="scoreChatHistory_${id}" class="flex flex-col gap-2 mb-3 max-h-48 overflow-y-auto"></div>
         <div class="flex gap-2">
           <input id="scoreChatInput_${id}" type="text" placeholder='Ej: "me dijo que tiene 4 años en growth marketing"' class="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-gray-400" onkeydown="if(event.key==='Enter')enviarMensajeScore('${id}')">
           <button id="scoreMicBtn_${id}" onclick="toggleScoreMic('${id}')" class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition text-sm">🎙</button>
@@ -2685,16 +2685,25 @@ async function enviarMensajeScore(id) {
   if(!texto) return;
   input.value = '';
 
-  const c = App.data.candidatos.find(x=>x.id===id);
-  const b = App.data.busquedas.find(x=>x.id===c?.busqueda_id)||{};
   if(!_scoreChatState[id]) _scoreChatState[id]={history:[],mic:null};
   const state = _scoreChatState[id];
 
   appendScoreChatMsg(id,'user',texto);
   state.history.push({role:'user',content:texto});
 
-  showToast('Analizando...');
+  // Mostrar "escribiendo..."
+  const hist = document.getElementById('scoreChatHistory_'+id);
+  const typing = document.createElement('div');
+  typing.id = 'scoreTyping_'+id;
+  typing.className = 'text-xs text-gray-400 italic px-1';
+  typing.textContent = 'La IA está analizando...';
+  if(hist) hist.appendChild(typing);
+
+  let respuesta = '';
   try {
+    const c = App.data.candidatos.find(x=>x.id===id)||{};
+    const b = App.data.busquedas.find(x=>x.id===c.busqueda_id)||{};
+
     const r = await apiPost({action:'recalibrar_score', data:{
       candidato_id: id,
       nombre: c.nombre||'',
@@ -2704,38 +2713,52 @@ async function enviarMensajeScore(id) {
       resumen_ejecutivo: c.resumen_ejecutivo||'', notas: c.notas||'',
       history: state.history
     }});
-    if(r.status!=='ok') { appendScoreChatMsg(id,'ia','Error: '+(r.message||'algo salió mal')); return; }
-    const d = r.data;
-    appendScoreChatMsg(id,'ia', d.respuesta||'Hecho.');
-    state.history.push({role:'assistant',content:d.respuesta||''});
 
-    // Si la IA devolvió nuevo score, actualizar en UI y guardar
-    if(d.nuevo_score!=null) {
+    // Quitar "escribiendo..."
+    document.getElementById('scoreTyping_'+id)?.remove();
+
+    if(!r || r.status!=='ok') {
+      appendScoreChatMsg(id,'ia','Error: '+(r?.message||'algo salió mal'));
+      return;
+    }
+
+    const d = r.data||{};
+    respuesta = d.respuesta || 'Listo.';
+    appendScoreChatMsg(id,'ia', respuesta);
+    state.history.push({role:'assistant', content:respuesta});
+
+    // Actualizar score si la IA devolvió uno nuevo (puede ser 0, verificar con != null)
+    if(d.nuevo_score !== null && d.nuevo_score !== undefined) {
       c.cv_score = d.nuevo_score;
-      c.cv_score_pros = d.nuevos_pros ? JSON.stringify(d.nuevos_pros) : c.cv_score_pros;
-      c.cv_score_contras = d.nuevos_contras ? JSON.stringify(d.nuevos_contras) : c.cv_score_contras;
-      // Actualizar el bloque de score en el DOM
+      if(d.nuevos_pros) c.cv_score_pros = JSON.stringify(d.nuevos_pros);
+      if(d.nuevos_contras) c.cv_score_contras = JSON.stringify(d.nuevos_contras);
+
+      // Actualizar bloque visual
+      const ns = normScore(d.nuevo_score);
+      const color = ns>=7?'bg-green-50 border-green-200':ns>=5?'bg-yellow-50 border-yellow-200':'bg-red-50 border-red-200';
+      const tcol  = ns>=7?'text-green-800':ns>=5?'text-yellow-800':'text-red-800';
+      const vcol  = ns>=7?'text-green-600':ns>=5?'text-yellow-600':'text-red-500';
       const scoreBlock = document.getElementById('scoreBlock_'+id);
       if(scoreBlock) {
-        const ns = normScore(d.nuevo_score);
-        const color = ns>=7?'bg-green-50 border-green-200':ns>=5?'bg-yellow-50 border-yellow-200':'bg-red-50 border-red-200';
-        const tcol = ns>=7?'text-green-800':ns>=5?'text-yellow-800':'text-red-800';
-        const vcol = ns>=7?'text-green-600':ns>=5?'text-yellow-600':'text-red-500';
         scoreBlock.className = `rounded-xl border p-4 mb-4 ${color}`;
-        const prosHtml = c.cv_score_pros?`<div><p class="text-xs font-semibold text-green-700 mb-1">✓ A favor</p><ul class="space-y-0.5">${toArr(c.cv_score_pros).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul></div>`:'';
-        const contrasHtml = c.cv_score_contras?`<div><p class="text-xs font-semibold text-red-600 mb-1">✗ En contra</p><ul class="space-y-0.5">${toArr(c.cv_score_contras).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul></div>`:'';
-        const pc = document.getElementById('scoreProsContras_'+id);
-        if(pc) pc.innerHTML = prosHtml+contrasHtml;
-        // Actualizar número
         const numEl = scoreBlock.querySelector('.text-2xl');
-        if(numEl){numEl.textContent=ns;numEl.className=`text-2xl font-black ${vcol}`;}
-        const labelEl = scoreBlock.querySelector('.text-xs.font-bold.uppercase');
-        if(labelEl){labelEl.textContent=`Score IA: ${ns}/10`;labelEl.className=`text-xs font-bold uppercase tracking-wide ${tcol}`;}
+        if(numEl){numEl.textContent=ns; numEl.className=`text-2xl font-black ${vcol}`;}
+        const lblEl = scoreBlock.querySelector('[data-score-label]');
+        if(lblEl){lblEl.textContent=`Score IA: ${ns}/10`; lblEl.className=`text-xs font-bold uppercase tracking-wide ${tcol}`;}
+        const pc = document.getElementById('scoreProsContras_'+id);
+        if(pc) {
+          const prosHtml = c.cv_score_pros?`<div><p class="text-xs font-semibold text-green-700 mb-1">✓ A favor</p><ul class="space-y-0.5">${toArr(c.cv_score_pros).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul></div>`:'';
+          const contrasHtml = c.cv_score_contras?`<div><p class="text-xs font-semibold text-red-600 mb-1">✗ En contra</p><ul class="space-y-0.5">${toArr(c.cv_score_contras).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul></div>`:'';
+          pc.innerHTML = prosHtml+contrasHtml;
+        }
       }
       await apiPost({action:'editar_candidato', data:{id, busqueda_id:c.busqueda_id, cv_score:c.cv_score, cv_score_pros:c.cv_score_pros, cv_score_contras:c.cv_score_contras}});
-      showToast(`Score actualizado: ${normScore(d.nuevo_score)}/10 ✓`);
+      showToast(`Score actualizado: ${ns}/10 ✓`);
     }
-  } catch(e) { appendScoreChatMsg(id,'ia','Error de conexión.'); }
+  } catch(err) {
+    document.getElementById('scoreTyping_'+id)?.remove();
+    appendScoreChatMsg(id,'ia','Error: '+err.message);
+  }
 }
 
 // Audio para el chat de score
