@@ -1560,26 +1560,28 @@ function modalVerCandidato(id) {
       <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none ml-4">×</button>
     </div>
 
-    ${c.cv_score?`
-    <div class="rounded-xl border p-4 mb-4 ${normScore(c.cv_score)>=7?'bg-green-50 border-green-200':normScore(c.cv_score)>=5?'bg-yellow-50 border-yellow-200':'bg-red-50 border-red-200'}">
+    <div id="scoreBlock_${id}" class="rounded-xl border p-4 mb-4 ${c.cv_score?(normScore(c.cv_score)>=7?'bg-green-50 border-green-200':normScore(c.cv_score)>=5?'bg-yellow-50 border-yellow-200':'bg-red-50 border-red-200'):'bg-gray-50 border-gray-200'}">
+      ${c.cv_score?`
       <div class="flex items-center justify-between mb-2">
-        <p class="text-xs font-bold uppercase tracking-wide ${normScore(c.cv_score)>=7?'text-green-800':normScore(c.cv_score)>=5?'text-yellow-800':'text-red-800'}">
-          Score IA: ${normScore(c.cv_score)}/10
-        </p>
+        <p class="text-xs font-bold uppercase tracking-wide ${normScore(c.cv_score)>=7?'text-green-800':normScore(c.cv_score)>=5?'text-yellow-800':'text-red-800'}">Score IA: ${normScore(c.cv_score)}/10</p>
         <span class="text-2xl font-black ${normScore(c.cv_score)>=7?'text-green-600':normScore(c.cv_score)>=5?'text-yellow-600':'text-red-500'}">${normScore(c.cv_score)}</span>
       </div>
       ${c.cv_score_justificacion?`<p class="text-xs text-gray-700 mb-3">${c.cv_score_justificacion}</p>`:''}
-      <div class="grid grid-cols-2 gap-3">
-        ${c.cv_score_pros?`<div>
-          <p class="text-xs font-semibold text-green-700 mb-1">✓ A favor</p>
-          <ul class="space-y-0.5">${toArr(c.cv_score_pros).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul>
-        </div>`:''}
-        ${c.cv_score_contras?`<div>
-          <p class="text-xs font-semibold text-red-600 mb-1">✗ En contra</p>
-          <ul class="space-y-0.5">${toArr(c.cv_score_contras).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul>
-        </div>`:''}
+      <div class="grid grid-cols-2 gap-3 mb-3" id="scoreProsContras_${id}">
+        ${c.cv_score_pros?`<div><p class="text-xs font-semibold text-green-700 mb-1">✓ A favor</p><ul class="space-y-0.5">${toArr(c.cv_score_pros).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul></div>`:''}
+        ${c.cv_score_contras?`<div><p class="text-xs font-semibold text-red-600 mb-1">✗ En contra</p><ul class="space-y-0.5">${toArr(c.cv_score_contras).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul></div>`:''}
+      </div>`:`<p class="text-xs text-gray-400 text-center py-1">Sin score — subí el CV para que la IA evalúe</p>`}
+      <!-- Chat recalibración -->
+      <button onclick="toggleScoreChat('${id}')" class="w-full text-xs text-gray-500 border border-dashed border-gray-300 rounded-lg py-1.5 hover:border-gray-400 hover:text-gray-700 transition mt-1">💬 Discutir este análisis con la IA</button>
+      <div id="scoreChat_${id}" class="hidden mt-3">
+        <div id="scoreChatHistory_${id}" class="space-y-2 mb-3 max-h-48 overflow-y-auto"></div>
+        <div class="flex gap-2">
+          <input id="scoreChatInput_${id}" type="text" placeholder='Ej: "me dijo que tiene 4 años en growth marketing"' class="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-gray-400" onkeydown="if(event.key==='Enter')enviarMensajeScore('${id}')">
+          <button id="scoreMicBtn_${id}" onclick="toggleScoreMic('${id}')" class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition text-sm">🎙</button>
+          <button onclick="enviarMensajeScore('${id}')" class="px-3 py-2 bg-gray-900 text-white text-xs rounded-lg hover:bg-gray-700 transition font-medium">Enviar</button>
+        </div>
       </div>
-    </div>`:''}
+    </div>
 
     ${c.etapa==='Contratado'&&!b.candidato_placement_id?`
     <div class="bg-green-50 border border-green-200 rounded-xl p-3 mb-4 flex items-center justify-between gap-3">
@@ -2649,6 +2651,130 @@ const TEMPLATES_BASE = {
     mensaje: (c,b,u) => `Hola ${c.nombre?.split(' ')[0]}, gracias por el tiempo y la buena onda durante el proceso. Esta vez el cliente decidió avanzar con otro perfil, pero me quedé con muy buena impresión tuya y te voy a tener en mente para próximas búsquedas. Saludos!`
   }
 };
+
+// ═══════════════════════════════════════════════════════════════
+// CHAT DE RECALIBRACIÓN DE SCORE
+// ═══════════════════════════════════════════════════════════════
+const _scoreChatState = {}; // { [candidatoId]: { history: [], mic: null } }
+
+function toggleScoreChat(id) {
+  const el = document.getElementById('scoreChat_'+id);
+  if(!el) return;
+  el.classList.toggle('hidden');
+  if(!el.classList.contains('hidden') && !_scoreChatState[id]) {
+    _scoreChatState[id] = { history: [], mic: null };
+  }
+}
+
+function appendScoreChatMsg(id, role, texto) {
+  const hist = document.getElementById('scoreChatHistory_'+id);
+  if(!hist) return;
+  const div = document.createElement('div');
+  div.className = role==='user'
+    ? 'text-xs bg-gray-100 rounded-lg px-3 py-2 text-gray-700 self-end ml-8'
+    : 'text-xs bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-indigo-900 mr-8';
+  div.textContent = texto;
+  hist.appendChild(div);
+  hist.scrollTop = hist.scrollHeight;
+}
+
+async function enviarMensajeScore(id) {
+  const input = document.getElementById('scoreChatInput_'+id);
+  if(!input) return;
+  const texto = input.value.trim();
+  if(!texto) return;
+  input.value = '';
+
+  const c = App.data.candidatos.find(x=>x.id===id);
+  const b = App.data.busquedas.find(x=>x.id===c?.busqueda_id)||{};
+  if(!_scoreChatState[id]) _scoreChatState[id]={history:[],mic:null};
+  const state = _scoreChatState[id];
+
+  appendScoreChatMsg(id,'user',texto);
+  state.history.push({role:'user',content:texto});
+
+  showToast('Analizando...');
+  try {
+    const r = await apiPost({action:'recalibrar_score', data:{
+      candidato_id: id,
+      nombre: c.nombre||'',
+      puesto: b.puesto||'', cliente: b.cliente||'', seniority: b.seniority||'',
+      must_haves: b.must_haves||'', criterio_si: b.criterio_si||'',
+      cv_score: c.cv_score||'', cv_score_pros: c.cv_score_pros||'', cv_score_contras: c.cv_score_contras||'',
+      resumen_ejecutivo: c.resumen_ejecutivo||'', notas: c.notas||'',
+      history: state.history
+    }});
+    if(r.status!=='ok') { appendScoreChatMsg(id,'ia','Error: '+(r.message||'algo salió mal')); return; }
+    const d = r.data;
+    appendScoreChatMsg(id,'ia', d.respuesta||'Hecho.');
+    state.history.push({role:'assistant',content:d.respuesta||''});
+
+    // Si la IA devolvió nuevo score, actualizar en UI y guardar
+    if(d.nuevo_score!=null) {
+      c.cv_score = d.nuevo_score;
+      c.cv_score_pros = d.nuevos_pros ? JSON.stringify(d.nuevos_pros) : c.cv_score_pros;
+      c.cv_score_contras = d.nuevos_contras ? JSON.stringify(d.nuevos_contras) : c.cv_score_contras;
+      // Actualizar el bloque de score en el DOM
+      const scoreBlock = document.getElementById('scoreBlock_'+id);
+      if(scoreBlock) {
+        const ns = normScore(d.nuevo_score);
+        const color = ns>=7?'bg-green-50 border-green-200':ns>=5?'bg-yellow-50 border-yellow-200':'bg-red-50 border-red-200';
+        const tcol = ns>=7?'text-green-800':ns>=5?'text-yellow-800':'text-red-800';
+        const vcol = ns>=7?'text-green-600':ns>=5?'text-yellow-600':'text-red-500';
+        scoreBlock.className = `rounded-xl border p-4 mb-4 ${color}`;
+        const prosHtml = c.cv_score_pros?`<div><p class="text-xs font-semibold text-green-700 mb-1">✓ A favor</p><ul class="space-y-0.5">${toArr(c.cv_score_pros).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul></div>`:'';
+        const contrasHtml = c.cv_score_contras?`<div><p class="text-xs font-semibold text-red-600 mb-1">✗ En contra</p><ul class="space-y-0.5">${toArr(c.cv_score_contras).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul></div>`:'';
+        const pc = document.getElementById('scoreProsContras_'+id);
+        if(pc) pc.innerHTML = prosHtml+contrasHtml;
+        // Actualizar número
+        const numEl = scoreBlock.querySelector('.text-2xl');
+        if(numEl){numEl.textContent=ns;numEl.className=`text-2xl font-black ${vcol}`;}
+        const labelEl = scoreBlock.querySelector('.text-xs.font-bold.uppercase');
+        if(labelEl){labelEl.textContent=`Score IA: ${ns}/10`;labelEl.className=`text-xs font-bold uppercase tracking-wide ${tcol}`;}
+      }
+      await apiPost({action:'editar_candidato', data:{id, busqueda_id:c.busqueda_id, cv_score:c.cv_score, cv_score_pros:c.cv_score_pros, cv_score_contras:c.cv_score_contras}});
+      showToast(`Score actualizado: ${normScore(d.nuevo_score)}/10 ✓`);
+    }
+  } catch(e) { appendScoreChatMsg(id,'ia','Error de conexión.'); }
+}
+
+// Audio para el chat de score
+async function toggleScoreMic(id) {
+  const state = _scoreChatState[id]||(_scoreChatState[id]={history:[],mic:null});
+  const btn = document.getElementById('scoreMicBtn_'+id);
+  if(state.mic) {
+    state.mic.stop();
+    state.mic = null;
+    if(btn) btn.textContent='🎙';
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    const rec = new MediaRecorder(stream);
+    const chunks = [];
+    rec.ondataavailable = e=>chunks.push(e.data);
+    rec.onstop = async()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      if(btn) btn.textContent='🎙';
+      state.mic=null;
+      const blob = new Blob(chunks,{type:'audio/webm'});
+      const reader = new FileReader();
+      reader.onloadend = async()=>{
+        const b64 = reader.result.split(',')[1];
+        showToast('Transcribiendo...');
+        const r = await apiPost({action:'sourcing_transcribir',data:{audio:b64}});
+        if(r.status==='ok'&&r.data?.texto) {
+          const inp = document.getElementById('scoreChatInput_'+id);
+          if(inp) inp.value=r.data.texto;
+        }
+      };
+      reader.readAsDataURL(blob);
+    };
+    rec.start();
+    state.mic = rec;
+    if(btn) btn.textContent='⏹';
+  } catch(e) { showToast('No se pudo acceder al micrófono','error'); }
+}
 
 function getTemplateMensaje(etapa, c, b) {
   const u = App.user?.nombre || '';
