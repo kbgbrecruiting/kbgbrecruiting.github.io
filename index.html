@@ -324,35 +324,152 @@ function renderSection() {
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 function renderDashboard() {
-  const k=App.data.kpis, b=App.data.busquedas, isAdmin=App.user.rol==='admin';
-  if (!k) return `<div class="p-6 text-gray-400 text-sm">Sin datos</div>`;
-  const sinActividad=k.sin_actividad_7dias||[];
+  const busquedas=App.data.busquedas, candidatos=App.data.candidatos||[], isAdmin=App.user.rol==='admin';
+  const hora=new Date().getHours();
+  const saludo=hora<12?'Buenos días':'hora<18?Buenas tardes':'Buenas noches';
+  const greeting=hora<12?'Buenos días':'Buenas';
+  const hoy=new Date().toISOString().slice(0,10);
+  const nombre=App.user?.nombre?.split(' ')[0]||'';
+
+  const activas=busquedas.filter(b=>b.estado==='activa');
+  const cerradas=busquedas.filter(b=>b.estado==='cerrada');
+
+  // Candidatos por etapa crítica
+  const enOferta=candidatos.filter(c=>c.etapa==='Oferta'&&activas.find(b=>b.id===c.busqueda_id));
+  const en2da=candidatos.filter(c=>c.etapa==='2da entrevista cliente'&&activas.find(b=>b.id===c.busqueda_id));
+  const sinMovimiento=candidatos.filter(c=>{
+    if(c.etapa==='Descartado'||c.etapa==='Contratado') return false;
+    if(!activas.find(b=>b.id===c.busqueda_id)) return false;
+    const dias=c.fecha_etapa_actual?Math.floor((Date.now()-new Date(c.fecha_etapa_actual))/(864e5)):null;
+    return dias!==null&&dias>5;
+  });
+
+  // Garantías por vencer (próximos 30 días)
+  const garantiasPorVencer=cerradas.filter(b=>{
+    if(!b.fecha_ingreso_contratado||!b.garantia_dias) return false;
+    const vence=new Date(new Date(b.fecha_ingreso_contratado).getTime()+Number(b.garantia_dias)*864e5);
+    const diasRestantes=Math.floor((vence-Date.now())/864e5);
+    return diasRestantes>=0&&diasRestantes<=30;
+  }).map(b=>{
+    const vence=new Date(new Date(b.fecha_ingreso_contratado).getTime()+Number(b.garantia_dias)*864e5);
+    return {...b, dias_restantes:Math.floor((vence-Date.now())/864e5)};
+  }).sort((a,b)=>a.dias_restantes-b.dias_restantes);
+
+  // Pipeline financiero ponderado
+  const pipelineProb=calcPipelineProb(activas,candidatos);
+  const cobradoMes=(()=>{
+    const mesKey=hoy.slice(0,7);
+    return cerradas.filter(b=>b.estado_cobro==='cobrado'&&String(b.fecha_cobro||'').slice(0,7)===mesKey)
+      .reduce((t,b)=>t+(Number(isAdmin?b.fee_cabeza:b.fee_recruiter)||Number(b.fee_calculado)||0),0);
+  })();
+
+  // Por búsqueda: cuántos candidatos activos y en qué mejor etapa
+  const ORDEN_ETAPA=['Contratado','Oferta','2da entrevista cliente','1ra entrevista cliente','Enviado al cliente','Presentado','En proceso de contacto','Interesado a contactar'];
+  const resumenBusquedas=activas.map(b=>{
+    const cands=candidatos.filter(c=>c.busqueda_id===b.id&&c.etapa!=='Descartado');
+    const mejorEtapa=cands.length?ORDEN_ETAPA.find(e=>cands.some(c=>c.etapa===e))||cands[0].etapa:null;
+    const stalled=cands.filter(c=>{const d=c.fecha_etapa_actual?Math.floor((Date.now()-new Date(c.fecha_etapa_actual))/864e5):0;return d>5;}).length;
+    return {b,cands,mejorEtapa,stalled};
+  }).sort((a,z)=>ORDEN_ETAPA.indexOf(a.mejorEtapa||'')-ORDEN_ETAPA.indexOf(z.mejorEtapa||''));
+
+  const alertas=enOferta.length+en2da.length+sinMovimiento.length+garantiasPorVencer.length;
+
   return `
-  <div class="p-6 max-w-4xl">
-    <div class="flex items-start justify-between mb-6 flex-wrap gap-3">
-      <h2 class="text-xl font-bold">Dashboard</h2>
+  <div class="p-6 max-w-4xl space-y-6">
+
+    <!-- Saludo -->
+    <div class="flex items-start justify-between flex-wrap gap-3">
+      <div>
+        <h2 class="text-xl font-bold">${greeting}${nombre?' '+nombre:''}.</h2>
+        <p class="text-sm text-gray-400 mt-0.5">${new Date().toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'})} · ${activas.length} búsqueda${activas.length!==1?'s':''} activa${activas.length!==1?'s':''}</p>
+      </div>
       ${isAdmin?selectorEquipoHTML():''}
     </div>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-      ${statCard('Búsquedas activas',k.busquedas_activas??'—','text-indigo-600')}
-      ${statCard('Contratados (mes)',k.contratados_mes??'—','text-green-600')}
-      ${statCard('Revenue del mes',k.ingreso_cobrado_mes!=null?fmtMoney(k.ingreso_cobrado_mes):'—','text-gray-900')}
-      ${statCard('Pipeline ponderado',k.ingreso_pipeline_ponderado!=null?fmtMoney(k.ingreso_pipeline_ponderado):'—','text-blue-600')}
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      ${statCard('Búsquedas activas', activas.length, 'text-indigo-600')}
+      ${statCard('En oferta ahora', enOferta.length, enOferta.length>0?'text-green-600':'text-gray-400')}
+      ${statCard('Cobrado este mes', fmtMoney(cobradoMes)||'—', 'text-gray-900')}
+      ${statCard('Pipeline proyectado', fmtMoney(pipelineProb)||'—', 'text-blue-600')}
     </div>
-    ${sinActividad.length?`
-      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-        <p class="text-sm font-semibold text-amber-800 mb-2">⚠️ Sin actividad hace +7 días (${sinActividad.length})</p>
-        ${sinActividad.map(x=>`<div class="text-sm text-amber-700">${x.cliente} · ${x.puesto}</div>`).join('')}
+
+    <!-- Alertas -->
+    ${alertas>0?`
+    <div class="space-y-2">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Atención hoy</p>
+
+      ${enOferta.map(c=>{const b=busquedas.find(x=>x.id===c.busqueda_id)||{};return `
+      <div class="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-3 cursor-pointer hover:bg-green-100 transition" onclick="openModal('candidato','${c.id}')">
+        <div class="flex items-center gap-3">
+          <span class="text-lg">🎯</span>
+          <div><p class="text-sm font-semibold text-green-900">${c.nombre} está en Oferta</p><p class="text-xs text-green-700">${b.cliente||''} · ${b.puesto||''}</p></div>
+        </div>
+        <span class="text-xs text-green-600 font-medium">Ver →</span>
+      </div>`}).join('')}
+
+      ${en2da.map(c=>{const b=busquedas.find(x=>x.id===c.busqueda_id)||{};return `
+      <div class="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 cursor-pointer hover:bg-blue-100 transition" onclick="openModal('candidato','${c.id}')">
+        <div class="flex items-center gap-3">
+          <span class="text-lg">⚡</span>
+          <div><p class="text-sm font-semibold text-blue-900">${c.nombre} en 2da entrevista</p><p class="text-xs text-blue-700">${b.cliente||''} · ${b.puesto||''}</p></div>
+        </div>
+        <span class="text-xs text-blue-600 font-medium">Ver →</span>
+      </div>`}).join('')}
+
+      ${garantiasPorVencer.map(b=>`
+      <div class="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+        <div class="flex items-center gap-3">
+          <span class="text-lg">⏳</span>
+          <div><p class="text-sm font-semibold text-red-900">Garantía vence en ${b.dias_restantes} día${b.dias_restantes!==1?'s':''}</p><p class="text-xs text-red-700">${b.candidato_placement||'—'} · ${b.cliente} · ${b.puesto}</p></div>
+        </div>
+      </div>`).join('')}
+
+      ${sinMovimiento.length?`
+      <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="text-lg">⚠️</span>
+          <p class="text-sm font-semibold text-amber-900">${sinMovimiento.length} candidato${sinMovimiento.length!==1?'s':''} sin movimiento +5 días</p>
+        </div>
+        <div class="space-y-1 pl-9">
+          ${sinMovimiento.map(c=>{
+            const b=busquedas.find(x=>x.id===c.busqueda_id)||{};
+            const dias=Math.floor((Date.now()-new Date(c.fecha_etapa_actual))/864e5);
+            return `<div class="flex items-center justify-between"><p class="text-xs text-amber-800"><span class="font-medium">${c.nombre}</span> · ${b.cliente||''} · <span class="text-amber-600">${dias}d en ${c.etapa}</span></p><button onclick="openModal('candidato','${c.id}')" class="text-xs text-amber-700 underline hover:text-amber-900">Ver</button></div>`;
+          }).join('')}
+        </div>
       </div>`:''}
-    <div class="bg-gray-50 rounded-xl p-5">
-      <p class="text-sm font-semibold text-gray-700 mb-3">Búsquedas activas</p>
-      ${b.filter(x=>x.estado==='activa').length===0?'<p class="text-sm text-gray-400">No hay búsquedas activas</p>':
-        b.filter(x=>x.estado==='activa').map(x=>`
-          <div class="flex items-center justify-between text-sm bg-white rounded-lg px-4 py-2.5 border border-gray-100 mb-2 cursor-pointer hover:shadow-sm" onclick="irAPipeline('${x.id}')">
-            <div><span class="font-medium">${x.cliente}</span><span class="text-gray-400 mx-1">·</span><span class="text-gray-600">${x.puesto}</span></div>
-            <div class="flex items-center gap-2">${prioridadBadge(x.prioridad)}<span class="text-xs text-gray-400">${x.recruiter_asignado||'—'}</span></div>
-          </div>`).join('')}
+    </div>`:`
+    <div class="bg-green-50 border border-green-100 rounded-xl px-4 py-3 flex items-center gap-3">
+      <span class="text-xl">✅</span>
+      <p class="text-sm text-green-800 font-medium">Todo en orden — no hay alertas pendientes.</p>
+    </div>`}
+
+    <!-- Pipeline por búsqueda -->
+    <div>
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Estado del pipeline</p>
+      ${resumenBusquedas.length===0?`<p class="text-sm text-gray-400">No hay búsquedas activas</p>`:
+      resumenBusquedas.map(({b,cands,mejorEtapa,stalled})=>`
+      <div class="bg-white border border-gray-200 rounded-xl px-4 py-3 mb-2 cursor-pointer hover:shadow-sm transition" onclick="irAPipeline('${b.id}')">
+        <div class="flex items-start justify-between gap-2 flex-wrap">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <p class="text-sm font-semibold text-gray-900">${b.cliente} · ${b.puesto}</p>
+              ${prioridadBadge(b.prioridad)}
+              ${b.exclusividad==='compartida'?`<span class="text-xs text-orange-600 border border-orange-200 bg-orange-50 rounded-full px-2 py-0.5">Compartida</span>`:''}
+            </div>
+            <div class="flex items-center gap-3 mt-1 flex-wrap">
+              <span class="text-xs text-gray-400">${cands.length} candidato${cands.length!==1?'s':''} activo${cands.length!==1?'s':''}</span>
+              ${mejorEtapa?`<span class="text-xs text-gray-600">Mejor etapa: <strong>${mejorEtapa}</strong></span>`:'<span class="text-xs text-gray-400">Sin candidatos</span>'}
+              ${stalled?`<span class="text-xs text-amber-600">⚠ ${stalled} sin movimiento</span>`:''}
+              ${b.recruiter_asignado?`<span class="text-xs text-gray-400">👤 ${b.recruiter_asignado}</span>`:''}
+            </div>
+          </div>
+          <span class="text-xs text-gray-400 flex-shrink-0">→</span>
+        </div>
+      </div>`).join('')}
     </div>
+
   </div>`;
 }
 function statCard(label,value,valueClass) {
@@ -1612,6 +1729,7 @@ function modalVerCandidato(id) {
           <p class="text-xs font-semibold text-amber-800">📝 Notas de entrevista</p>
           <div class="flex gap-1.5">
             <button onclick="descargarNotasCandidato('${id}')" class="text-xs bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg hover:bg-amber-200 transition font-medium">⬇ PDF</button>
+            <button onclick="procesarNotasIA('${id}')" class="text-xs bg-indigo-600 text-white px-2.5 py-1 rounded-lg hover:bg-indigo-700 transition font-medium">✨ Procesar</button>
             <button onclick="guardarNotasCandidato('${id}')" class="text-xs bg-amber-700 text-white px-2.5 py-1 rounded-lg hover:bg-amber-800 transition font-medium">Guardar</button>
           </div>
         </div>
@@ -2845,6 +2963,92 @@ function modalTemplateMensaje(id) {
       </div>
     </div>
   </div>`;
+}
+
+async function procesarNotasIA(id) {
+  const notas = document.getElementById('notasCandidato_'+id)?.value||'';
+  if(!notas.trim()) { showToast('Escribí algo en las notas primero','error'); return; }
+  const c = App.data.candidatos.find(x=>x.id===id);
+  if(!c) return;
+  const b = App.data.busquedas.find(x=>x.id===c.busqueda_id)||{};
+
+  // Guardar notas primero
+  await apiPost({action:'editar_candidato',data:{id,busqueda_id:c.busqueda_id,notas}});
+  c.notas = notas;
+
+  showToast('Procesando notas con IA...');
+  const btn = document.querySelector(`button[onclick="procesarNotasIA('${id}')"]`);
+  if(btn){btn.disabled=true;btn.textContent='⏳ Procesando...';}
+
+  try {
+    const r = await apiPost({action:'procesar_notas', data:{
+      nombre: c.nombre||'',
+      puesto: b.puesto||'', cliente: b.cliente||'', seniority: b.seniority||'',
+      must_haves: b.must_haves||'', criterio_si: b.criterio_si||'',
+      cv_score: c.cv_score||'', cv_score_pros: c.cv_score_pros||'', cv_score_contras: c.cv_score_contras||'',
+      resumen_ejecutivo: c.resumen_ejecutivo||'',
+      notas
+    }});
+
+    if(r.status!=='ok') { showToast(r.message||'Error al procesar','error'); return; }
+    const d = r.data;
+
+    // Actualizar candidato en memoria
+    if(d.nuevo_score != null) c.cv_score = d.nuevo_score;
+    if(d.nuevos_pros)    c.cv_score_pros    = JSON.stringify(d.nuevos_pros);
+    if(d.nuevos_contras) c.cv_score_contras = JSON.stringify(d.nuevos_contras);
+    if(d.resumen_ejecutivo) c.resumen_ejecutivo = d.resumen_ejecutivo;
+
+    // Guardar todo en el sheet
+    await apiPost({action:'editar_candidato', data:{
+      id, busqueda_id: c.busqueda_id,
+      cv_score: c.cv_score,
+      cv_score_pros: c.cv_score_pros,
+      cv_score_contras: c.cv_score_contras,
+      resumen_ejecutivo: c.resumen_ejecutivo||''
+    }});
+
+    // Actualizar bloque de score en el DOM sin re-abrir el modal
+    const ns = normScore(c.cv_score);
+    const color   = ns>=7?'bg-green-50 border-green-200':ns>=5?'bg-yellow-50 border-yellow-200':'bg-red-50 border-red-200';
+    const tcol    = ns>=7?'text-green-800':ns>=5?'text-yellow-800':'text-red-800';
+    const vcol    = ns>=7?'text-green-600':ns>=5?'text-yellow-600':'text-red-500';
+    const scoreBlock = document.getElementById('scoreBlock_'+id);
+    if(scoreBlock) {
+      scoreBlock.className = `rounded-xl border p-4 mb-4 ${color}`;
+      const numEl = scoreBlock.querySelector('.text-2xl');
+      if(numEl){numEl.textContent=ns; numEl.className=`text-2xl font-black ${vcol}`;}
+      const lblEl = scoreBlock.querySelector('[data-score-label]');
+      if(lblEl){lblEl.textContent=`Score IA: ${ns}/10`; lblEl.className=`text-xs font-bold uppercase tracking-wide ${tcol}`;}
+      const pc = document.getElementById('scoreProsContras_'+id);
+      if(pc){
+        const prosHtml    = c.cv_score_pros    ? `<div><p class="text-xs font-semibold text-green-700 mb-1">✓ A favor</p><ul class="space-y-0.5">${toArr(c.cv_score_pros).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul></div>` : '';
+        const contrasHtml = c.cv_score_contras ? `<div><p class="text-xs font-semibold text-red-600 mb-1">✗ En contra</p><ul class="space-y-0.5">${toArr(c.cv_score_contras).map(p=>`<li class="text-xs text-gray-600">• ${p}</li>`).join('')}</ul></div>` : '';
+        pc.innerHTML = prosHtml + contrasHtml;
+      }
+    }
+
+    // Mostrar resumen de lo que cambió
+    const cambios = [];
+    if(d.nuevo_score != null) cambios.push(`Score → ${ns}/10`);
+    if(d.nuevos_pros)         cambios.push('pros actualizados');
+    if(d.nuevos_contras)      cambios.push('contras actualizados');
+    showToast('✓ ' + (cambios.length ? cambios.join(' · ') : 'Notas procesadas'));
+
+    // Mostrar resumen en el chat de score si está abierto
+    if(d.resumen_cambios) {
+      if(!_scoreChatState[id]) _scoreChatState[id]={history:[],mic:null};
+      const chatEl = document.getElementById('scoreChat_'+id);
+      if(chatEl && !chatEl.classList.contains('hidden')) {
+        appendScoreChatMsg(id,'ia','[Notas procesadas] '+d.resumen_cambios);
+      }
+    }
+
+  } catch(err) {
+    showToast('Error: '+err.message,'error');
+  } finally {
+    if(btn){btn.disabled=false;btn.textContent='✨ Procesar';}
+  }
 }
 
 async function guardarNotasCandidato(id) {
