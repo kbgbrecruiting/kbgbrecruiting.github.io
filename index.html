@@ -2412,8 +2412,7 @@ async function descargarNotasCandidato(id) {
     if(r.status==='ok') resumen=r.data.resumen||'';
   } catch(e) {}
   const fecha=new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'});
-  const monedaExp = c.moneda_expectativa||'';
-  const expStr = c.expectativa_salarial ? (monedaExp?monedaExp+' ':'')+c.expectativa_salarial : '';
+  const expStr = c.expectativa_salarial ? String(c.expectativa_salarial) : '';
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${c.nombre}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -2432,6 +2431,10 @@ body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a1a;backg
 .sec-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;color:#bbb;margin-bottom:10px}
 .sec-body{font-size:14px;line-height:1.9;color:#333;min-height:20px}
 .sec-body.large{font-size:14.5px;line-height:1.95}
+.bullets{list-style:none;padding:0;margin:0}
+.bullets li{padding:5px 0 5px 20px;position:relative;font-size:14px;line-height:1.7;color:#333;border-bottom:1px solid #f5f5f5}
+.bullets li:last-child{border-bottom:none}
+.bullets li::before{content:'•';position:absolute;left:0;color:#aaa;font-size:16px;line-height:1.5}
 /* CONTACT GRID */
 .contact-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0}
 .contact-item{padding:9px 0;border-bottom:1px solid #f0f0f0;display:flex;flex-direction:column;gap:2px}
@@ -2482,18 +2485,17 @@ body{padding-top:108px}
   </div>
 </div>
 
-<div class="section">
-  <div class="sec-label" contenteditable="true">Resumen del perfil</div>
-  <div class="sec-body large" contenteditable="true">${resumen||'(completar)'}</div>
-</div>
+${(()=>{
+  const lines = resumen ? resumen.split(/\n|(?<=\.)\s+(?=[A-ZÁÉÍÓÚÜ])/).map(s=>s.replace(/^[•\-\*]\s*/,'')).filter(s=>s.trim()) : [];
+  if(!lines.length) return `<div class="section"><div class="sec-label" contenteditable="true">Resumen del perfil</div><div class="sec-body" contenteditable="true" style="color:#bbb">(completar)</div></div>`;
+  return `<div class="section"><div class="sec-label" contenteditable="true">Resumen del perfil</div><ul class="bullets">${lines.map(l=>`<li contenteditable="true">${l.replace(/\.$/,'')}</li>`).join('')}</ul></div>`;
+})()}
 
-${c.notas?`<div class="section">
-  <div class="sec-label" contenteditable="true">Comentarios</div>
-  <div class="sec-body" style="white-space:pre-wrap" contenteditable="true">${c.notas}</div>
-</div>`:`<div class="section">
-  <div class="sec-label" contenteditable="true">Comentarios</div>
-  <div class="sec-body" contenteditable="true" style="color:#bbb">(completar)</div>
-</div>`}
+${(()=>{
+  const lines = c.notas ? String(c.notas).split(/\n|•/).map(s=>s.replace(/^[•\-\*]\s*/,'')).filter(s=>s.trim()) : [];
+  if(!lines.length) return `<div class="section"><div class="sec-label" contenteditable="true">Comentarios</div><div class="sec-body" contenteditable="true" style="color:#bbb">(completar)</div></div>`;
+  return `<div class="section"><div class="sec-label" contenteditable="true">Comentarios</div><ul class="bullets">${lines.map(l=>`<li contenteditable="true">${l}</li>`).join('')}</ul></div>`;
+})()}
 
 <div class="section">
   <div class="sec-label" contenteditable="true">Disponibilidad para entrevista</div>
