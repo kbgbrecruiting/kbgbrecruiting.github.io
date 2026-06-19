@@ -326,8 +326,7 @@ function renderSection() {
 function renderDashboard() {
   const busquedas=App.data.busquedas, candidatos=App.data.candidatos||[], isAdmin=App.user.rol==='admin';
   const hora=new Date().getHours();
-  const saludo=hora<12?'Buenos días':'hora<18?Buenas tardes':'Buenas noches';
-  const greeting=hora<12?'Buenos días':'Buenas';
+  const greeting=hora<12?'Buenos días':hora<18?'Buenas tardes':'Buenas noches';
   const hoy=new Date().toISOString().slice(0,10);
   const nombre=App.user?.nombre?.split(' ')[0]||'';
 
