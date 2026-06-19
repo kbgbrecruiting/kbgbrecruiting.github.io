@@ -704,54 +704,152 @@ function calcFeeClient(b) {
   return 0;
 }
 
+// Probabilidad por etapa × exclusividad
+const PROB_ETAPA = {'Interesado a contactar':0.05,'En proceso de contacto':0.08,'Presentado':0.15,'Enviado al cliente':0.22,'1ra entrevista cliente':0.40,'2da entrevista cliente':0.65,'Oferta':0.88,'Contratado':1};
+function calcPipelineProb(busquedas, candidatos) {
+  // Por cada búsqueda activa con fee, suma fee × prob_etapa × factor_exclusividad
+  let total=0;
+  const excl_factor = {'exclusiva':1,'compartida':0.35};
+  busquedas.filter(b=>b.estado==='activa').forEach(b=>{
+    const fee=calcFeeClient(b); if(!fee) return;
+    const fx=excl_factor[b.exclusividad||'exclusiva']||1;
+    const cands=candidatos.filter(c=>c.busqueda_id===b.id&&c.etapa!=='Descartado');
+    if(!cands.length){ total+=fee*0.05*fx; return; }
+    // Usar el candidato más avanzado por búsqueda
+    const maxProb=Math.max(...cands.map(c=>PROB_ETAPA[c.etapa]||0.05));
+    total+=fee*maxProb*fx;
+  });
+  return Math.round(total);
+}
+
 function renderIngresos() {
   const busquedas=App.data.busquedas;
+  const candidatos=App.data.candidatos||[];
   const isAdmin=App.user.rol==='admin';
   const placements=busquedas.filter(b=>b.estado==='cerrada')
     .sort((a,b)=>(b.fecha_cierre||'').localeCompare(a.fecha_cierre||''));
   const activas=busquedas.filter(b=>b.estado==='activa');
 
-  // Admin ve fee_cabeza, recruiter ve fee_recruiter
   const feeKey=isAdmin?'fee_cabeza':'fee_recruiter';
   const cobrado=placements.filter(b=>b.estado_cobro==='cobrado').reduce((t,b)=>t+(Number(b[feeKey])||Number(b.fee_calculado)||0),0);
   const pendiente=placements.filter(b=>b.estado_cobro!=='cobrado').reduce((t,b)=>t+(Number(b[feeKey])||Number(b.fee_calculado)||0),0);
-  const pipeline=activas.reduce((t,b)=>t+calcFeeClient(b),0);
+  const pipelineTotal=activas.reduce((t,b)=>t+calcFeeClient(b),0);
+  const pipelineProb=calcPipelineProb(activas,candidatos);
   const sinFees=isAdmin?placements.filter(b=>!Number(b.fee_calculado)):[];
 
-  return `
-  <div class="p-6 max-w-4xl">
-    <h2 class="text-xl font-bold mb-2">Ingresos</h2>
-    ${isAdmin?`<p class="text-xs text-gray-400 mb-6">Vista completa · solo visible para Cabeza</p>`:`<p class="text-xs text-gray-400 mb-6">Tu comisión por placement</p>`}
+  // Proyección por búsqueda activa
+  const excl_factor={'exclusiva':1,'compartida':0.35};
+  const proyPorBusqueda=activas.map(b=>{
+    const fee=calcFeeClient(b);
+    const fx=excl_factor[b.exclusividad||'exclusiva']||1;
+    const cands=candidatos.filter(c=>c.busqueda_id===b.id&&c.etapa!=='Descartado');
+    const maxEtapa=cands.length?cands.reduce((best,c)=>(PROB_ETAPA[c.etapa]||0)>(PROB_ETAPA[best.etapa]||0)?c:best,cands[0]):null;
+    const prob=maxEtapa?PROB_ETAPA[maxEtapa.etapa]||0.05:0.05;
+    return {b,fee,prob,fx,proyectado:Math.round(fee*prob*fx),cands,maxEtapa};
+  }).filter(x=>x.fee>0).sort((a,z)=>z.proyectado-a.proyectado);
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      ${statCard('Cobrado',fmtMoney(cobrado),'text-green-600')}
-      ${statCard('Pendiente de cobro',fmtMoney(pendiente),'text-amber-600')}
-      ${statCard('Fee en pipeline activo',fmtMoney(pipeline),'text-indigo-600')}
+  // Histórico mensual (últimos 6 meses)
+  const ahora=new Date();
+  const meses=Array.from({length:6},(_,i)=>{
+    const d=new Date(ahora.getFullYear(),ahora.getMonth()-5+i,1);
+    return {key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,label:d.toLocaleDateString('es-AR',{month:'short',year:'2-digit'})};
+  });
+  const cobradoPorMes={};
+  placements.filter(b=>b.estado_cobro==='cobrado'&&b.fecha_cobro).forEach(b=>{
+    const k=String(b.fecha_cobro).slice(0,7);
+    cobradoPorMes[k]=(cobradoPorMes[k]||0)+(Number(b[feeKey])||Number(b.fee_calculado)||0);
+  });
+  const maxMes=Math.max(1,...meses.map(m=>cobradoPorMes[m.key]||0));
+
+  return `
+  <div class="p-6 max-w-4xl space-y-6">
+    <div>
+      <h2 class="text-xl font-bold mb-1">Ingresos</h2>
+      <p class="text-xs text-gray-400">${isAdmin?'Vista completa · solo para Cabeza':'Tu comisión por placement'}</p>
     </div>
 
-    ${sinFees.length?`
-    <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-5">
-      <p class="text-sm font-semibold text-red-800 mb-1">⚠️ ${sinFees.length} placement${sinFees.length>1?'s':''} sin fees cargados</p>
-      <div class="space-y-2 mt-2">
-        ${sinFees.map(b=>`
-          <div class="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-red-100">
-            <span class="text-sm text-gray-700">${b.cliente} · ${b.puesto} <span class="text-xs text-gray-400">· ${b.candidato_placement||'—'}</span></span>
-            <button onclick="openModal('completar_fees','${b.id}')" class="text-xs bg-red-600 text-white px-3 py-1 rounded-lg font-medium hover:bg-red-700 transition">Cargar fees →</button>
-          </div>`).join('')}
+    <!-- KPIs principales -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      ${statCard('Cobrado total',fmtMoney(cobrado),'text-green-600')}
+      ${statCard('Pendiente cobro',fmtMoney(pendiente),'text-amber-600')}
+      ${statCard('Fee bruto en pipeline',fmtMoney(pipelineTotal),'text-gray-500')}
+      ${statCard('Proyección ponderada',fmtMoney(pipelineProb),'text-indigo-600')}
+    </div>
+
+    <!-- Histórico mensual -->
+    <div class="bg-white border border-gray-200 rounded-xl p-4">
+      <p class="text-xs font-semibold text-gray-700 mb-4">Histórico de cobros — últimos 6 meses</p>
+      <div class="flex items-end gap-2 h-28">
+        ${meses.map(m=>{
+          const val=cobradoPorMes[m.key]||0;
+          const h=val?Math.max(8,Math.round((val/maxMes)*96)):4;
+          const esHoy=m.key===`${ahora.getFullYear()}-${String(ahora.getMonth()+1).padStart(2,'0')}`;
+          return `<div class="flex-1 flex flex-col items-center gap-1">
+            ${val?`<p class="text-xs text-gray-500 font-medium" style="font-size:9px">${fmtMoney(val)}</p>`:'<p style="font-size:9px" class="text-gray-300">—</p>'}
+            <div class="w-full rounded-t-md ${esHoy?'bg-indigo-500':'bg-gray-200'}" style="height:${h}px"></div>
+            <p class="text-xs text-gray-400" style="font-size:9px">${m.label}</p>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Proyección por búsqueda activa -->
+    ${proyPorBusqueda.length?`
+    <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div class="bg-gray-50 px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+        <p class="text-xs font-semibold text-gray-700">Proyección por búsqueda activa</p>
+        <p class="text-xs text-gray-400">Ponderado por etapa × exclusividad</p>
+      </div>
+      <div class="divide-y divide-gray-100">
+        ${proyPorBusqueda.map(({b,fee,prob,fx,proyectado,cands,maxEtapa})=>`
+        <div class="px-4 py-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="text-sm font-semibold text-gray-900">${b.cliente} · ${b.puesto}</p>
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium ${b.exclusividad==='compartida'?'bg-orange-50 text-orange-700 border border-orange-200':'bg-green-50 text-green-700 border border-green-200'}">${b.exclusividad==='compartida'?'Compartida':'Exclusiva'}</span>
+              </div>
+              <div class="flex items-center gap-3 mt-1 flex-wrap">
+                <span class="text-xs text-gray-400">Fee: ${fmtMoney(fee,b.moneda||'')}</span>
+                ${maxEtapa?`<span class="text-xs text-gray-400">Mejor etapa: <strong class="text-gray-600">${maxEtapa.etapa}</strong> (${Math.round(prob*100)}%)</span>`:'<span class="text-xs text-gray-400">Sin candidatos activos</span>'}
+                ${fx<1?`<span class="text-xs text-orange-500">×${fx} por compartida</span>`:''}
+                <span class="text-xs text-gray-300">${cands.length} candidato${cands.length!==1?'s':''} activo${cands.length!==1?'s':''}</span>
+              </div>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <p class="text-sm font-bold ${proyectado>0?'text-indigo-700':'text-gray-400'}">${fmtMoney(proyectado,b.moneda||'')}</p>
+              <p class="text-xs text-gray-400">proyectado</p>
+            </div>
+          </div>
+        </div>`).join('')}
+        <div class="px-4 py-3 bg-indigo-50 flex items-center justify-between">
+          <p class="text-sm font-semibold text-indigo-900">Total proyectado</p>
+          <p class="text-sm font-bold text-indigo-700">${fmtMoney(pipelineProb)}</p>
+        </div>
       </div>
     </div>`:''}
 
+    ${sinFees.length?`
+    <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+      <p class="text-sm font-semibold text-red-800 mb-2">⚠️ ${sinFees.length} placement${sinFees.length>1?'s':''} sin fees cargados</p>
+      ${sinFees.map(b=>`
+        <div class="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-red-100 mb-2">
+          <span class="text-sm text-gray-700">${b.cliente} · ${b.puesto} <span class="text-xs text-gray-400">· ${b.candidato_placement||'—'}</span></span>
+          <button onclick="openModal('completar_fees','${b.id}')" class="text-xs bg-red-600 text-white px-3 py-1 rounded-lg font-medium hover:bg-red-700 transition">Cargar fees →</button>
+        </div>`).join('')}
+    </div>`:''}
+
+    <!-- Placements cobrados -->
     ${placements.length===0?`
       <div class="text-center py-12 text-gray-400 text-sm bg-gray-50 rounded-xl">
         <p class="text-2xl mb-2">🎯</p>
         <p>No hay placements registrados todavía.</p>
         <p class="text-xs mt-1">Cuando cerrés una búsqueda por placement, aparece acá.</p>
-      </div>
-    `:`
+      </div>`:`
       <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div class="bg-gray-50 px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
           <p class="text-xs font-semibold text-gray-700">Placements (${placements.length})</p>
-          <p class="text-xs text-gray-400">Total: ${fmtMoney(cobrado+pendiente)}</p>
+          <p class="text-xs text-gray-400">Total cobrado + pendiente: ${fmtMoney(cobrado+pendiente)}</p>
         </div>
         <div class="divide-y divide-gray-100">
           ${placements.map(b=>{
@@ -768,8 +866,7 @@ function renderIngresos() {
                     ${b.fecha_ingreso_contratado?' · Ingreso '+fmtDate(b.fecha_ingreso_contratado):''}
                     ${b.recruiter_asignado?' · 👤 '+b.recruiter_asignado:''}
                   </p>
-                  ${isAdmin&&feeTotal?`
-                  <p class="text-xs text-gray-500 mt-1">
+                  ${isAdmin&&feeTotal?`<p class="text-xs text-gray-500 mt-1">
                     Fee total: <strong>${fmtMoney(feeTotal,b.moneda||'')}</strong>
                     ${b.fee_recruiter?' · Recruiter: '+fmtMoney(b.fee_recruiter,b.moneda||''):''}
                     ${b.fee_cabeza?' · <span class="text-amber-700">Cabeza: '+fmtMoney(b.fee_cabeza,b.moneda||'')+'</span>':''}
@@ -791,8 +888,7 @@ function renderIngresos() {
             </div>`;
           }).join('')}
         </div>
-      </div>
-    `}
+      </div>`}
   </div>`;
 }
 
@@ -2718,6 +2814,17 @@ function modalNuevaBusqueda(payload) {
           <select name="modalidad" class="${selectCls()}">${['','presencial','híbrido','remoto'].map(m=>`<option value="${m}" ${lead?.modalidad===m?'selected':''}>${m||'—'}</option>`).join('')}</select></div>
         <div><label class="block text-xs font-medium text-gray-600 mb-1">Moneda</label>
           <select name="moneda" class="${selectCls()}">${['ARS','USD'].map(m=>`<option ${lead?.moneda===m?'selected':''}>${m}</option>`).join('')}</select></div>
+        <div class="col-span-2"><label class="block text-xs font-medium text-gray-600 mb-1">🔒 Tipo de búsqueda</label>
+          <div class="grid grid-cols-2 gap-2 mt-1">
+            <label class="flex items-center gap-2 border rounded-lg px-3 py-2.5 cursor-pointer hover:bg-gray-50 has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
+              <input type="radio" name="exclusividad" value="exclusiva" checked class="text-gray-900">
+              <div><p class="text-xs font-semibold text-gray-800">Exclusiva</p><p class="text-xs text-gray-400">Solo nosotros</p></div>
+            </label>
+            <label class="flex items-center gap-2 border rounded-lg px-3 py-2.5 cursor-pointer hover:bg-gray-50 has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
+              <input type="radio" name="exclusividad" value="compartida" class="text-gray-900">
+              <div><p class="text-xs font-semibold text-gray-800">Compartida</p><p class="text-xs text-gray-400">Con otras agencias</p></div>
+            </label>
+          </div></div>
         ${App.user?.rol==='admin'?`
         <div><label class="block text-xs font-medium text-gray-600 mb-1">Fee tipo</label>
           <select name="fee_tipo" id="feeTipo" onchange="toggleFeeBase()" class="${selectCls()}"><option value="%">% del salario</option><option value="fijo">Monto fijo</option></select></div>
@@ -2795,6 +2902,17 @@ function modalEditarBusqueda(id) {
         <div><label class="block text-xs font-medium text-gray-600 mb-1">Fecha cierre</label><input name="fecha_cierre" type="date" value="${b.fecha_cierre||''}" class="${inputCls()}"></div>
         <div><label class="block text-xs font-medium text-gray-600 mb-1">Vacantes a cubrir</label><input name="vacantes" type="number" min="1" value="${b.vacantes||1}" class="${inputCls()}"></div>
       </div>
+      <div><label class="block text-xs font-medium text-gray-600 mb-2">🔒 Tipo de búsqueda</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex items-center gap-2 border rounded-lg px-3 py-2.5 cursor-pointer hover:bg-gray-50 has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
+            <input type="radio" name="exclusividad" value="exclusiva" ${(b.exclusividad||'exclusiva')==='exclusiva'?'checked':''} class="text-gray-900">
+            <div><p class="text-xs font-semibold text-gray-800">Exclusiva</p><p class="text-xs text-gray-400">Solo nosotros</p></div>
+          </label>
+          <label class="flex items-center gap-2 border rounded-lg px-3 py-2.5 cursor-pointer hover:bg-gray-50 has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
+            <input type="radio" name="exclusividad" value="compartida" ${b.exclusividad==='compartida'?'checked':''} class="text-gray-900">
+            <div><p class="text-xs font-semibold text-gray-800">Compartida</p><p class="text-xs text-gray-400">Con otras agencias</p></div>
+          </label>
+        </div></div>
       <button type="submit" class="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-700 transition text-sm mt-2">Guardar cambios</button>
     </form>
   </div>`;
