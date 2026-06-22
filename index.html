@@ -854,7 +854,7 @@ function renderKanbanCol(etapa, candidatos, bid, busqueda, todas) {
           ${c.expectativa_salarial?`<p class="text-xs text-gray-400 mt-1">💰 ${c.expectativa_salarial}</p>`:''}
           ${dots}
           ${mustHaves.length?`<p class="text-xs text-gray-400 mt-1">${siCount}/${mustHaves.length} must-haves ✓</p>`:''}
-          ${(()=>{const t=String(c.contacto_telefono||'').replace(/\D/g,'');return t?`<a href="https://wa.me/${t}" target="_blank" onclick="event.stopPropagation()" class="mt-2 inline-flex items-center gap-1 text-xs text-green-600 font-medium hover:text-green-700">💬 WA</a>`:''})()}
+          ${(()=>{const t=String(c.contacto_telefono||'').replace(/\D/g,'');if(!t)return'';const msg=buildWaMensajePrimerContacto(c,b);return `<a href="https://wa.me/${t}?text=${encodeURIComponent(msg)}" target="_blank" onclick="event.stopPropagation()" class="mt-2 inline-flex items-center gap-1 text-xs text-green-600 font-medium hover:text-green-700">💬 WA</a>`;})()}
         </div>`;
       }).join('')}
     </div>
@@ -1758,6 +1758,11 @@ async function submitEditCandidato(e,id) {
   else showToast(r.message||'Error','error');
 }
 
+function buildWaMensajePrimerContacto(c,b) {
+  const primerNombre=(c.nombre||'').trim().split(/\s+/)[0]||'';
+  if (b.mensaje_conexion) return b.mensaje_conexion;
+  return `Hola ${primerNombre}! Soy Agustín, recruiter. Te contacto porque tu perfil me parece muy interesante para una búsqueda de ${b.puesto||'un puesto'}${b.cliente?' en '+b.cliente:''}. ¿Tenés un minuto para que te cuente más?`;
+}
 function modalVerCandidato(id) {
   const c=App.data.candidatos.find(x=>x.id===id);
   if(!c) return '<div class="p-6">No encontrado</div>';
@@ -1765,6 +1770,7 @@ function modalVerCandidato(id) {
   const mustHaves=tryJSON(b.must_haves,[]);
   const sc=tryJSON(c.scorecard,{});
   const tel=String(c.contacto_telefono||'').replace(/\D/g,'');
+  const waMensaje=buildWaMensajePrimerContacto(c,b);
   const etapaColor={'Interesado a contactar':'bg-blue-100 text-blue-700','Contactado':'bg-indigo-100 text-indigo-700','Entrevista AGB':'bg-purple-100 text-purple-700','Entrevista cliente':'bg-yellow-100 text-yellow-700','2da entrevista cliente':'bg-orange-100 text-orange-700','Oferta':'bg-green-100 text-green-700','Contratado':'bg-green-200 text-green-800','Descartado':'bg-red-100 text-red-700'};
   const etapaStyle=etapaColor[c.etapa]||'bg-gray-100 text-gray-600';
 
@@ -1825,7 +1831,7 @@ function modalVerCandidato(id) {
     </div>`:''}
 
     <div class="flex flex-wrap gap-2 mb-4">
-      ${tel?`<a href="https://wa.me/${tel}" target="_blank" class="flex items-center gap-1.5 text-sm px-4 py-2 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition">💬 WhatsApp</a>`:''}
+      ${tel?`<a href="https://wa.me/${tel}?text=${encodeURIComponent(waMensaje)}" target="_blank" class="flex items-center gap-1.5 text-sm px-4 py-2 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition">💬 WhatsApp</a>`:''}
       ${c.contacto_email?`<a href="mailto:${c.contacto_email}" class="flex items-center gap-1.5 text-sm px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition">✉️ Email</a>`:''}
       ${c.linkedin?`<a href="${c.linkedin.startsWith('http')?c.linkedin:'https://'+c.linkedin}" target="_blank" class="flex items-center gap-1.5 text-sm px-4 py-2 bg-blue-50 text-blue-700 rounded-xl font-medium hover:bg-blue-100 transition">in LinkedIn</a>`:''}
       ${c.cv_pdf_url?`<a href="${c.cv_pdf_url}" target="_blank" class="flex items-center gap-1.5 text-sm px-4 py-2 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl font-medium hover:bg-amber-100 transition">📄 Ver CV</a>`:''}
