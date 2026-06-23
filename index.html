@@ -760,6 +760,7 @@ function renderBriefingPanel(b) {
         <button onclick="openModal('parsear_jd','${b.id}')" class="text-xs px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg font-medium hover:bg-indigo-100 transition">✨ Parsear JD con IA</button>
         <button onclick="openModal('sourcing_ia','${b.id}')" class="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-lg font-medium hover:bg-blue-100 transition">🔍 Sourcing IA</button>
         <button onclick="openModal('resumen_pipeline','${b.id}')" class="text-xs px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg font-medium hover:bg-emerald-100 transition">📊 Resumen cliente</button>
+        <button onclick="copiarLinkPostulacion('${b.id}')" class="text-xs px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg font-medium hover:bg-amber-100 transition">🔗 Link postulación</button>
         <button onclick="openModal('briefing','${b.id}')" class="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-700 transition">Editar briefing</button>
         ${b.estado==='activa'?`<button onclick="openModal('cerrar_busqueda','${b.id}')" class="text-xs px-3 py-1.5 bg-red-50 text-red-600 border border-red-100 rounded-lg font-medium hover:bg-red-100 transition">Cerrar búsqueda</button>`:''}
       </div>
