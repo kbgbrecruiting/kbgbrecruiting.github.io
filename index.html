@@ -1704,6 +1704,25 @@ function setScore(btn, key, val) {
   else if(actualVal==='quizas') btn.classList.add('active-q');
 }
 
+// Cicla el valor del scorecard en la ficha de candidato: vacío→si→no→quizas→vacío
+// Guarda automáticamente en el sheet sin necesidad de ir a editar
+async function toggleScorecard(candidatoId, mh) {
+  const c = App.data.candidatos.find(x=>x.id===candidatoId);
+  if (!c) return;
+  const sc = tryJSON(c.scorecard, {});
+  const ciclo = {undefined:'si', '':'si', si:'no', no:'quizas', quizas:''};
+  sc[mh] = ciclo[sc[mh]] ?? 'si';
+  c.scorecard = JSON.stringify(sc);
+  // guardar en sheet
+  await apiPost('editar_candidato', { id: candidatoId, scorecard: c.scorecard });
+  // re-render solo el modal sin cerrar
+  const modal = document.getElementById('modal');
+  if (modal) {
+    const inner = document.getElementById('modalInner');
+    if (inner) inner.innerHTML = modalVerCandidato(candidatoId);
+  }
+}
+
 function cvDropZoneHtml(formId, existingCvUrl) {
   const url = App._cvPdfUrl || existingCvUrl || '';
   const inner = url
@@ -1861,21 +1880,39 @@ function modalVerCandidato(id) {
   const etapaColor={'Contactados':'bg-blue-100 text-blue-700','Entrevistados':'bg-purple-100 text-purple-700','Presentados':'bg-indigo-100 text-indigo-700','1ra entrevista cliente':'bg-yellow-100 text-yellow-700','2da entrevista cliente':'bg-orange-100 text-orange-700','Oferta':'bg-green-100 text-green-700','Contratado':'bg-green-200 text-green-800','On hold':'bg-yellow-50 text-yellow-600','Descartado':'bg-red-100 text-red-700'};
   const etapaStyle=etapaColor[c.etapa]||'bg-gray-100 text-gray-600';
 
+  // build AI evaluados lookup: must_have text → {cumple, evidencia}
+  const mhEvals = tryJSON(c.must_haves_evaluados, null);
+  const mhEvalMap = {};
+  if (Array.isArray(mhEvals)) mhEvals.forEach(e=>{ if(e.must_have) mhEvalMap[e.must_have.toLowerCase().trim()]=e; });
+
   const scorecardHtml=mustHaves.length?`
     <div class="border border-gray-100 rounded-xl overflow-hidden mt-4">
-      <div class="bg-gray-50 px-4 py-2 border-b border-gray-100">
+      <div class="bg-gray-50 px-4 py-2 border-b border-gray-100 flex items-center justify-between">
         <p class="text-xs font-semibold text-gray-700">Scorecard</p>
+        <p class="text-xs text-gray-400">Tocá un ítem para marcar manualmente</p>
       </div>
       <div class="divide-y divide-gray-50">
         ${mustHaves.map(mh=>{
           const v=sc[mh];
-          const badge=v==='si'?'<span class="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">✓ Sí</span>':
-                      v==='no'?'<span class="text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full">✗ No</span>':
-                      v==='quizas'?'<span class="text-xs font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-full">? Quizás</span>':
-                      '<span class="text-xs text-gray-300">Sin evaluar</span>';
-          return `<div class="flex items-center justify-between px-4 py-2.5 gap-3"><p class="text-xs text-gray-700 flex-1">${mh}</p>${badge}</div>`;
+          // manual override takes priority
+          if (v==='si') return `<div class="flex items-start justify-between px-4 py-2.5 gap-3 cursor-pointer hover:bg-gray-50" onclick="toggleScorecard('${id}','${escAttr(mh)}')"><p class="text-xs text-gray-700 flex-1">${mh}</p><span class="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full flex-shrink-0">✓ Sí</span></div>`;
+          if (v==='no') return `<div class="flex items-start justify-between px-4 py-2.5 gap-3 cursor-pointer hover:bg-gray-50" onclick="toggleScorecard('${id}','${escAttr(mh)}')"><p class="text-xs text-gray-700 flex-1">${mh}</p><span class="text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full flex-shrink-0">✗ No</span></div>`;
+          if (v==='quizas') return `<div class="flex items-start justify-between px-4 py-2.5 gap-3 cursor-pointer hover:bg-gray-50" onclick="toggleScorecard('${id}','${escAttr(mh)}')"><p class="text-xs text-gray-700 flex-1">${mh}</p><span class="text-xs font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-full flex-shrink-0">~ Quizás</span></div>`;
+          // no manual value — check AI evaluados
+          const aiMatch = mhEvalMap[mh.toLowerCase().trim()];
+          let aiBadge, aiTooltip='';
+          if (aiMatch) {
+            if (aiMatch.cumple==='si') aiBadge='<span class="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex-shrink-0 opacity-70" title="${escAttr(aiMatch.evidencia||\'\')}">✓ Sí (IA)</span>';
+            else if (aiMatch.cumple==='no') aiBadge='<span class="text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full flex-shrink-0 opacity-70" title="${escAttr(aiMatch.evidencia||\'\')}">✗ No (IA)</span>';
+            else if (aiMatch.cumple==='parcial') aiBadge='<span class="text-xs font-medium text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full flex-shrink-0 opacity-70" title="${escAttr(aiMatch.evidencia||\'\')}">~ Parcial (IA)</span>';
+            else aiBadge='<span class="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0" title="No se puede determinar desde el CV — verificar en entrevista">📋 A verificar</span>';
+          } else {
+            aiBadge='<span class="text-xs text-gray-300 flex-shrink-0">Sin evaluar</span>';
+          }
+          return `<div class="flex items-start justify-between px-4 py-2.5 gap-3 cursor-pointer hover:bg-gray-50" onclick="toggleScorecard('${id}','${escAttr(mh)}')"><p class="text-xs text-gray-700 flex-1">${mh}</p>${aiBadge}</div>`;
         }).join('')}
       </div>
+      <p class="text-xs text-gray-400 px-4 py-2 border-t border-gray-100">Los ítems con "📋 A verificar" no aparecen en CVs — confirmá en entrevista.</p>
     </div>`:'';
 
   return `
