@@ -655,48 +655,61 @@ function irAPipeline(bid) { App.data.busquedaActiva=bid; loadSection('pipeline')
 // ═══════════════════════════════════════════════════════════════
 function renderLeads() {
   const leads=App.data.leads;
-  const pend=leads.filter(l=>!l.estado||l.estado==='pendiente'||l.estado==='nuevo'), resto=leads.filter(l=>l.estado&&l.estado!=='pendiente'&&l.estado!=='nuevo');
+  const pend=leads.filter(l=>!l.estado||l.estado==='nuevo'||l.estado==='pendiente'||l.estado==='contactado');
+  const resto=leads.filter(l=>l.estado&&l.estado!=='nuevo'&&l.estado!=='pendiente'&&l.estado!=='contactado');
   return `
-  <div class="p-6 max-w-4xl">
+  <div class="p-6 max-w-3xl">
     <h2 class="text-xl font-bold mb-6">Bandeja de Leads</h2>
-    ${pend.length===0?'<div class="text-sm text-gray-400 bg-gray-50 rounded-xl p-6 text-center">No hay leads pendientes</div>':''}
-    ${pend.map(l=>renderLeadCard(l,true)).join('')}
-    ${resto.length?`<details class="mt-8"><summary class="cursor-pointer text-sm text-gray-500 font-medium mb-3">Ver procesados (${resto.length})</summary><div class="mt-3 space-y-3 opacity-70">${resto.map(l=>renderLeadCard(l,false)).join('')}</div></details>`:''}
+    ${pend.length===0?'<div class="text-sm text-gray-400 bg-gray-50 rounded-xl p-6 text-center">No hay leads activos</div>':''}
+    <div class="space-y-4">${pend.map(l=>renderLeadCard(l,true)).join('')}</div>
+    ${resto.length?`<details class="mt-8"><summary class="cursor-pointer text-sm text-gray-500 font-medium mb-3">Ver cerrados (${resto.length})</summary><div class="mt-3 space-y-3 opacity-60">${resto.map(l=>renderLeadCard(l,false)).join('')}</div></details>`:''}
   </div>`;
 }
-function renderLeadCard(l,showActions) {
+
+function renderLeadCard(l, showActions) {
   const wa = String(l.contacto_whatsapp||l.contacto_telefono||'').replace(/\D/g,'');
   const waUrl = wa ? `https://wa.me/${wa}` : null;
-  const hasJD = l.jd_texto && l.jd_texto.length > 20;
+  const estadoColor = {nuevo:'bg-amber-100 text-amber-700', pendiente:'bg-amber-100 text-amber-700', contactado:'bg-blue-100 text-blue-700', convertido:'bg-green-100 text-green-700', descartado:'bg-gray-100 text-gray-500'}[l.estado]||'bg-gray-100 text-gray-500';
   return `
-  <div class="bg-white border border-gray-200 rounded-xl p-5 mb-3">
-    <div class="flex items-start justify-between gap-3 mb-3 flex-wrap">
-      <div>
-        ${l.empresa?`<span class="font-semibold">${l.empresa}</span><span class="text-gray-400 mx-2">·</span>`:''}
-        <span class="text-gray-700">${l.puesto||'Sin puesto'}</span>
-        ${l.seniority?`<span class="text-gray-400 mx-1">·</span><span class="text-gray-500 text-sm">${l.seniority}</span>`:''}
-        ${hasJD?`<span class="ml-2 text-xs bg-indigo-50 text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded-full font-medium">📄 JD adjunta</span>`:''}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+    <div class="px-5 pt-5 pb-4">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <p class="font-bold text-gray-900 text-base">${l.empresa||'<span class="text-gray-400 font-normal">Sin empresa</span>'}</p>
+          <p class="text-gray-600 text-sm mt-0.5">${l.puesto||'Sin puesto'}</p>
+        </div>
+        <div class="flex flex-col items-end gap-1 flex-shrink-0">
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${estadoColor}">${l.estado||'nuevo'}</span>
+          <span class="text-xs text-gray-400">${fmtDate(l.fecha||l.fecha_recibido)}</span>
+        </div>
       </div>
-      <div class="flex items-center gap-2 flex-shrink-0">${estadoBadge(l.estado)}<span class="text-xs text-gray-400">${fmtDate(l.fecha||l.fecha_recibido)}</span></div>
+      <div class="flex flex-wrap items-center gap-3 text-sm">
+        <span class="text-gray-700 font-medium">👤 ${l.contacto_nombre||'—'}</span>
+        ${waUrl
+          ? `<a href="${waUrl}" target="_blank" onclick="event.stopPropagation()" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 transition">💬 WhatsApp</a>`
+          : `<span class="text-xs text-gray-400 italic">Sin WhatsApp</span>`}
+        ${l.contacto_email?`<a href="mailto:${l.contacto_email}" class="text-xs text-indigo-600 hover:underline">✉️ ${l.contacto_email}</a>`:''}
+      </div>
     </div>
-    <div class="flex flex-wrap gap-3 items-center text-sm text-gray-600 mb-3">
-      <span>👤 ${l.contacto_nombre||'—'}</span>
-      ${waUrl?`<a href="${waUrl}" target="_blank" onclick="event.stopPropagation()" class="inline-flex items-center gap-1.5 px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition">💬 WhatsApp</a>`:''}
-      ${l.contacto_email?`<span class="text-gray-400 text-xs">✉️ ${l.contacto_email}</span>`:''}
-      ${l.moneda&&(l.banda_salarial_min||l.banda_salarial_max)?`<span>💰 ${l.moneda} ${fmtMoney(l.banda_salarial_min)}–${fmtMoney(l.banda_salarial_max)}</span>`:''}
-      ${l.modalidad?`<span>🏢 ${l.modalidad}</span>`:''}
-    </div>
-    ${l.detalle_rol?`<p class="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2 mb-3">${l.detalle_rol}</p>`:''}
-    ${showActions?`<div class="flex gap-2 mt-3">
-      <button onclick="aprobarLead('${l.id}')" class="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg font-medium hover:bg-gray-700 transition">✓ Abrir búsqueda</button>
-      <button onclick="descartarLead('${l.id}')" class="px-4 py-2 bg-white text-red-600 border border-red-200 text-sm rounded-lg font-medium hover:bg-red-50 transition">✕ Descartar</button>
+    ${showActions?`
+    <div class="border-t border-gray-100 px-5 py-3 bg-gray-50 flex flex-wrap gap-2">
+      ${l.estado!=='contactado'?`<button onclick="marcarContactadoLead('${l.id}')" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">📞 Marcar contactado</button>`:''}
+      <button onclick="aprobarLead('${l.id}')" class="px-3 py-1.5 text-xs font-semibold bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition">✓ Abrir búsqueda</button>
+      <button onclick="descartarLead('${l.id}')" class="px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-200 bg-white rounded-lg hover:bg-red-50 transition">✕ Descartar</button>
     </div>`:''}
   </div>`;
 }
+
+async function marcarContactadoLead(id) {
+  const r = await apiPost({action:'editar_lead', data:{id, estado:'contactado'}});
+  if(r.status==='ok'){const l=App.data.leads.find(x=>x.id===id);if(l)l.estado='contactado';render();}
+  else showToast(r.message||'Error','error');
+}
 async function descartarLead(id) {
   if (!confirm('¿Descartar este lead?')) return;
-  const r=await apiPost({action:'descartar_lead',data:{lead_id:id}});
-  if(r.status==='ok'){showToast('Lead descartado');await loadSection('leads');}else showToast(r.message||'Error','error');
+  const r = await apiPost({action:'editar_lead', data:{id, estado:'descartado'}});
+  if(r.status==='ok'){const l=App.data.leads.find(x=>x.id===id);if(l)l.estado='descartado';showToast('Lead descartado');render();}
+  else showToast(r.message||'Error','error');
 }
 function aprobarLead(id) { openModal('nueva_busqueda',{lead:App.data.leads.find(x=>x.id===id)}); }
 
@@ -1398,6 +1411,13 @@ function modalBriefing(bid) {
           <input name="banda_salarial_max" type="number" value="${b.banda_salarial_max||''}" placeholder="Máximo" class="${inputCls()} flex-1">
         </div>
       </div>
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="block text-xs font-semibold text-gray-700">🔍 Preguntas de filtro <span class="font-normal text-gray-400">(una por línea — se muestran al candidato al postularse)</span></label>
+          <button type="button" onclick="sugerirPreguntasFiltro('${bid}')" id="btnSugerirPF" class="text-xs text-indigo-600 font-semibold hover:text-indigo-800 transition">✨ Sugerir con IA</button>
+        </div>
+        <textarea name="preguntas_filtro" rows="4" id="pfTextarea" class="${inputCls()} resize-none" placeholder="¿Cuál es tu expectativa salarial?&#10;¿Tenés experiencia con X tecnología?&#10;¿Podés trabajar de manera presencial en CABA?">${b.preguntas_filtro||''}</textarea>
+      </div>
       <div class="border-t border-gray-100 pt-4">
         <label class="block text-xs font-semibold text-gray-700 mb-1">📝 Notas de reunión / mail de alineamiento</label>
         <textarea name="notas_alineamiento" rows="4" class="${inputCls()} resize-none text-xs" placeholder="Lo que te contaron en la reunión: qué buscan realmente, red flags verbales, comentarios del manager, urgencias, etc.">${b.notas_alineamiento||''}</textarea>
@@ -1447,6 +1467,7 @@ async function submitBriefing(e,bid) {
     must_haves:JSON.stringify(d.must_haves.split('\n').map(s=>s.trim()).filter(Boolean)),
     nice_to_haves:JSON.stringify(d.nice_to_haves.split('\n').map(s=>s.trim()).filter(Boolean)),
     red_flags:JSON.stringify(d.red_flags.split('\n').map(s=>s.trim()).filter(Boolean)),
+    preguntas_filtro:d.preguntas_filtro||'',
     proceso_cliente:d.proceso_cliente,
     criterio_si:d.criterio_si,
     notas_alineamiento:d.notas_alineamiento||'',
@@ -1460,6 +1481,20 @@ async function submitBriefing(e,bid) {
     if(b) Object.assign(b,updates);
     App._parsedBriefing=null; showToast('Briefing guardado ✓'); closeModal();
   } else showToast(r.message||'Error','error');
+}
+
+async function sugerirPreguntasFiltro(bid) {
+  const btn = document.getElementById('btnSugerirPF');
+  btn.textContent = '⏳ Pensando...'; btn.disabled = true;
+  try {
+    const r = await apiPost({ action:'sugerir_preguntas_filtro', data:{ busqueda_id: bid } });
+    if (r.status !== 'ok') throw new Error(r.message||'Error');
+    const preguntas = r.data?.preguntas || [];
+    const ta = document.getElementById('pfTextarea');
+    if (ta) ta.value = preguntas.join('\n');
+    showToast('Preguntas sugeridas — editá las que quieras ✓');
+  } catch(err) { showToast(err.message||'Error','error'); }
+  btn.textContent = '✨ Sugerir con IA'; btn.disabled = false;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3761,30 +3796,54 @@ function renderApply() {
   </div>`;
 
   const b = App._applyData;
+  const mustHaves = toArr(b.must_haves||'');
+  const preguntas = toArr(b.preguntas_filtro||'');
+  const lbl = 'block text-sm font-semibold text-gray-700 mb-1';
+  const inp = inputCls();
   return `
-  <div class="min-h-screen flex flex-col">
+  <div class="min-h-screen flex flex-col bg-gray-50">
     <header class="bg-gray-900 text-white px-6 py-4">
       <span class="font-bold text-lg tracking-tight">KBGB Recruiting</span>
     </header>
-    <section class="px-6 py-12 max-w-xl mx-auto w-full">
-      <p class="text-xs font-semibold text-indigo-600 uppercase tracking-widest mb-2">Búsqueda abierta</p>
-      <h1 class="text-2xl font-bold text-gray-900 mb-1">${b.puesto||''}</h1>
-      <p class="text-gray-500 text-sm mb-6">${b.seniority?b.seniority+' · ':''}${b.modalidad||''}${(b.banda_salarial_min||b.banda_salarial_max)?' · '+(b.moneda||'')+' '+fmtMoney(b.banda_salarial_min)+'–'+fmtMoney(b.banda_salarial_max):''}</p>
-      ${b.detalle_rol?`<p class="text-sm text-gray-600 bg-gray-50 rounded-xl p-4 mb-6 leading-relaxed">${b.detalle_rol}</p>`:''}
 
+    <!-- Info de la búsqueda -->
+    <div class="bg-white border-b border-gray-200 px-6 py-8">
+      <div class="max-w-xl mx-auto">
+        <p class="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-2">Búsqueda abierta</p>
+        <h1 class="text-2xl font-bold text-gray-900 mb-1">${b.puesto||''}</h1>
+        ${b.cliente?`<p class="text-gray-500 text-sm mb-4">${b.cliente}</p>`:''}
+        ${b.descripcion?`<p class="text-sm text-gray-600 leading-relaxed mb-4">${b.descripcion}</p>`:''}
+        ${mustHaves.length?`
+        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+          <p class="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">Requisitos clave</p>
+          <ul class="space-y-1">${mustHaves.map(m=>`<li class="text-sm text-indigo-900 flex gap-2"><span class="text-indigo-400 flex-shrink-0">✓</span>${m}</li>`).join('')}</ul>
+        </div>`:''}
+      </div>
+    </div>
+
+    <!-- Formulario -->
+    <section class="px-6 py-10 max-w-xl mx-auto w-full">
+      <h2 class="text-lg font-bold text-gray-900 mb-6">Tu información</h2>
       <form id="applyForm" class="space-y-4" onsubmit="submitPostulacion(event,'${App._applyBid}')">
-        <div><label class="block text-sm font-medium text-gray-700 mb-1">Tu nombre *</label><input name="nombre" required class="${inputCls()}"></div>
-        <div><label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp *</label><input name="contacto_telefono" type="tel" required pattern="[\d\s\+\-\(\)]{6,}" title="Ingresá un número de WhatsApp válido (mínimo 6 dígitos)" placeholder="Ej: +54 9 11 1234 5678" class="${inputCls()}"></div>
-        <div><label class="block text-sm font-medium text-gray-700 mb-1">Email</label><input name="contacto_email" type="email" class="${inputCls()}"></div>
-        <div><label class="block text-sm font-medium text-gray-700 mb-1">Expectativa salarial</label>
-          <div class="flex gap-2"><select name="expectativa_moneda" class="${selectCls()} w-24 flex-shrink-0"><option value="ARS">ARS</option><option value="USD">USD</option></select><input name="expectativa_salarial" placeholder="Ej: 3300-3500" class="${inputCls()} flex-1"></div>
+        <div><label class="${lbl}">Nombre completo *</label><input name="nombre" required placeholder="Juan García" class="${inp}"></div>
+        <div><label class="${lbl}">WhatsApp *</label><input name="contacto_telefono" type="tel" required pattern="[\\d\\s\\+\\-\\(\\)]{6,}" placeholder="+54 9 11 1234 5678" class="${inp}"></div>
+        <div><label class="${lbl}">Email</label><input name="contacto_email" type="email" placeholder="vos@mail.com" class="${inp}"></div>
+
+        ${preguntas.length?`
+        <div class="pt-2">
+          <p class="text-sm font-bold text-gray-800 mb-3">Preguntas de filtro</p>
+          <div class="space-y-3">
+            ${preguntas.map((p,i)=>`<div><label class="${lbl}">${p}</label><input name="filtro_${i}" placeholder="Tu respuesta..." class="${inp}"></div>`).join('')}
+          </div>
+        </div>`:''}
+
+        <div class="pt-2">
+          <label class="${lbl}">Tu CV (PDF) *</label>
+          <input type="file" id="applyCvFile" accept=".pdf" required class="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-900 file:text-white hover:file:bg-gray-700 cursor-pointer">
+          <p id="applyCvStatus" class="text-xs text-gray-400 mt-2"></p>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Tu CV (PDF) *</label>
-          <input type="file" name="cv_file" id="applyCvFile" accept=".pdf" required class="${inputCls()}">
-          <p id="applyCvStatus" class="text-xs text-gray-400 mt-1"></p>
-        </div>
-        <button type="submit" id="applySubmitBtn" class="w-full bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition text-sm">Postularme</button>
+
+        <button type="submit" id="applySubmitBtn" class="w-full bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-gray-700 transition text-sm mt-2">Postularme →</button>
       </form>
     </section>
   </div>`;
@@ -3799,34 +3858,47 @@ async function submitPostulacion(e, bid) {
   btn.disabled = true; btn.textContent = 'Enviando...';
   try {
     statusEl.textContent = '📄 Leyendo CV...';
-    if (typeof pdfjsLib==='undefined') throw new Error('No se pudo leer el PDF');
-    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
     const base64 = await new Promise((res,rej)=>{
       const reader=new FileReader();
       reader.onload=e=>res(e.target.result.split(',')[1]);
       reader.onerror=rej;
       reader.readAsDataURL(file);
     });
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({data:new Uint8Array(arrayBuffer)}).promise;
-    let text='';
-    for (let i=1;i<=pdf.numPages;i++){
-      const page=await pdf.getPage(i);
-      const content=await page.getTextContent();
-      text+=content.items.map(item=>item.str).join(' ')+'\n';
-    }
-    if (!text.trim()) throw new Error('El PDF no tiene texto extraíble');
 
-    statusEl.textContent = '✨ Enviando postulación...';
+    // Intentar extraer texto con pdf.js (falla silenciosamente en scaneados)
+    let cvText = '';
+    try {
+      if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const pdf = await pdfjsLib.getDocument({data: new Uint8Array(await file.arrayBuffer())}).promise;
+        for (let i=1;i<=pdf.numPages;i++){
+          const page=await pdf.getPage(i);
+          const content=await page.getTextContent();
+          cvText+=content.items.map(item=>item.str).join(' ')+'\n';
+        }
+      }
+    } catch(_) {}
+    if (!cvText.trim()) statusEl.textContent = '📷 PDF escaneado — el servidor hará el OCR...';
+
+    // Recolectar preguntas de filtro
     const fd = new FormData(e.target);
     const d = Object.fromEntries(fd.entries());
-    delete d.cv_file;
-    if (d.contacto_telefono) d.contacto_telefono = d.contacto_telefono.replace(/\D/g,'');
-    if (d.expectativa_salarial) d.expectativa_salarial = (d.expectativa_moneda||'ARS')+' '+d.expectativa_salarial;
-    delete d.expectativa_moneda;
+    const respuestasFiltro = {};
+    const preguntas = toArr(App._applyData?.preguntas_filtro||'');
+    preguntas.forEach((p,i)=>{ if(d[`filtro_${i}`]) respuestasFiltro[p]=d[`filtro_${i}`]; delete d[`filtro_${i}`]; });
 
-    const r = await apiPostPublic({ action:'postular_candidato', data:{
-      ...d, busqueda_id: bid, cv_text: text, base64data: base64, filename: file.name, recruiter_id: App._applyBy||'',
+    if (d.contacto_telefono) d.contacto_telefono = d.contacto_telefono.replace(/\D/g,'');
+
+    statusEl.textContent = '✨ Enviando postulación...';
+    const r = await apiPostPublic({ action:'nueva_postulacion', data:{
+      ...d,
+      busqueda_id: bid,
+      cv_text: cvText,
+      base64data: base64,
+      filename: file.name,
+      recruiter_id: App._applyBy||'',
+      respuestas_filtro: JSON.stringify(respuestasFiltro),
     }});
     if (r.status!=='ok') throw new Error(r.message||'Error al enviar');
     App._applyState = 'sent';
@@ -3834,7 +3906,7 @@ async function submitPostulacion(e, bid) {
   } catch(err) {
     showToast(err.message||'Error','error');
     statusEl.textContent = '❌ '+(err.message||'Error');
-    btn.disabled = false; btn.textContent = 'Postularme';
+    btn.disabled = false; btn.textContent = 'Postularme →';
   }
 }
 
