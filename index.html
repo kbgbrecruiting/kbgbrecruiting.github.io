@@ -193,10 +193,19 @@ const LANDING_COPY = {
     ],
     diff_title: 'Nuestro servicio es:',
     diff: [
-      { tag:'SIN RIESGO', heading:'Sin riesgo', body:'No se cobran honorarios por adelantado. Si no contratás al candidato, no hay cargo.' },
-      { tag:'NO EXCLUSIVO', heading:'No exclusivo', body:'Las búsquedas pueden abrirse tanto por el cliente como por otras consultoras contratadas.' },
-      { tag:'CON GARANTÍA', heading:'Con garantía', body:'Si el candidato no supera el período de prueba (60 días desde el inicio), encontramos una nueva persona sin costo adicional.' },
-      { tag:'RÁPIDO', heading:'Entrega rápida', body:'Presentamos candidatos calificados en 2 a 4 días hábiles.' },
+      { tag:'SIN RIESGO', body:'No se cobran honorarios por adelantado. Si no contratás al candidato, no hay cargo.' },
+      { tag:'NO EXCLUSIVO', body:'Las búsquedas pueden abrirse tanto por el cliente como por otras consultoras contratadas por el cliente.' },
+      { tag:'CON GARANTÍA', body:'Si el candidato no supera el período de prueba (60 días desde el inicio), encontramos una nueva persona sin costo adicional.' },
+      { tag:'ENTREGA RÁPIDA', body:'Presentamos candidatos calificados en 2 a 4 días hábiles.' },
+    ],
+    workflow_title: 'Cómo trabajamos',
+    workflow: [
+      { n:'1', label:'Company Knowledge', sub:'Entendemos tu negocio, cultura y equipo' },
+      { n:'2', label:'Definition of the Profile', sub:'Definimos el perfil ideal juntos' },
+      { n:'3', label:'Search & Selection', sub:'Búsqueda activa y filtro de candidatos' },
+      { n:'4', label:'Presentation', sub:'Presentamos los mejores perfiles' },
+      { n:'5', label:'Interview Scheduling', sub:'Coordinamos las entrevistas con el cliente' },
+      { n:'6', label:'Feedback & Follow-up', sub:'Acompañamos hasta el cierre y más allá' },
     ],
     form_title: 'Contanos sobre tu búsqueda',
     form_sub: 'Completá el formulario y te contacto en menos de 24 horas hábiles.',
@@ -232,10 +241,19 @@ const LANDING_COPY = {
     ],
     diff_title: 'Our service is:',
     diff: [
-      { tag:'RISK-FREE', heading:'Risk-free', body:'No upfront fees are charged. If you do not hire the candidate, there is no charge.' },
-      { tag:'NON-EXCLUSIVE', heading:'Non-exclusive', body:'Searches can be opened either by the client or by other consulting firms contracted by the client.' },
-      { tag:'GUARANTEED', heading:'Guaranteed', body:"In case of candidate's termination within the trial period (60 days from start date), we will find a new person at no additional cost." },
-      { tag:'FAST TURNAROUND', heading:'Fast turnaround', body:'We present qualified candidates within 2–4 business days.' },
+      { tag:'RISK-FREE', body:'No upfront fees are charged. If you do not hire the candidate, there is no charge.' },
+      { tag:'NON-EXCLUSIVE', body:'Searches can be opened either by the client or by other consulting firms contracted by the client.' },
+      { tag:'GUARANTEED', body:"In case of candidate's termination within the trial period (60 days from start date), we will find a new person at no additional cost for the client." },
+      { tag:'FAST TURNAROUND', body:'We present qualified candidates within 2–4 business days.' },
+    ],
+    workflow_title: 'How we work',
+    workflow: [
+      { n:'1', label:'Company Knowledge', sub:'We learn your business, culture and team' },
+      { n:'2', label:'Profile Definition', sub:'We define the ideal profile together' },
+      { n:'3', label:'Search & Selection', sub:'Active sourcing and candidate screening' },
+      { n:'4', label:'Presentation', sub:'We present the best-fit candidates' },
+      { n:'5', label:'Interview Scheduling', sub:'We coordinate all interviews with the client' },
+      { n:'6', label:'Feedback & Follow-up', sub:'We support you through closing and beyond' },
     ],
     form_title: 'Tell us about your search',
     form_sub: "Fill out the form and I'll get back to you within 24 business hours.",
@@ -301,13 +319,34 @@ function renderLanding() {
       </div>
     </section>
 
+    <!-- Diferenciales — layout split como slide 5 -->
+    <section class="flex flex-col md:flex-row min-h-[560px]">
+      <!-- Izquierda: foto oscura con título -->
+      <div class="md:w-2/5 relative flex items-center justify-center bg-gray-900 overflow-hidden min-h-[220px]">
+        <div class="absolute inset-0" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#0f172a 100%)"></div>
+        <div class="absolute inset-0 opacity-20" style="background-image:url('https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800&q=80');background-size:cover;background-position:center"></div>
+        <div class="relative z-10 text-center px-8">
+          <h2 class="text-3xl md:text-4xl font-extrabold text-white leading-tight">Our<br>Differentials</h2>
+        </div>
+      </div>
+      <!-- Derecha: botones azules estilo slide -->
+      <div class="md:w-3/5 bg-white flex flex-col justify-center px-8 md:px-14 py-12 gap-6">
+        <p class="text-sm text-gray-500 font-medium text-center">${t.diff_title}</p>
+        ${t.diff.map(d=>`
+        <div class="flex flex-col items-center text-center gap-2">
+          <span class="inline-block bg-[#2563eb] text-white text-sm font-bold px-10 py-2.5 rounded-md tracking-widest uppercase">${d.tag}</span>
+          <p class="text-gray-600 text-sm max-w-sm leading-relaxed">${d.body}</p>
+        </div>`).join('<hr class="border-gray-100 w-3/4 mx-auto">')}
+      </div>
+    </section>
+
     <!-- Cómo trabajo -->
-    <section class="px-6 py-16 bg-white">
+    <section class="px-6 py-16 bg-gray-50">
       <div class="max-w-3xl mx-auto">
         <h2 class="text-2xl font-bold mb-8 text-gray-900">${t.how_title}</h2>
         <div class="grid md:grid-cols-2 gap-5">
           ${t.how.map(([icon,title,desc])=>`
-          <div class="flex gap-4 p-5 rounded-xl border border-gray-100 bg-gray-50">
+          <div class="flex gap-4 p-5 rounded-xl border border-gray-100 bg-white">
             <span class="text-2xl">${icon}</span>
             <div><p class="font-semibold text-gray-900 mb-1">${title}</p><p class="text-gray-500 text-sm leading-relaxed">${desc}</p></div>
           </div>`).join('')}
@@ -315,16 +354,19 @@ function renderLanding() {
       </div>
     </section>
 
-    <!-- Diferenciales -->
-    <section class="px-6 py-16 bg-[#1a2a4a] text-white">
+    <!-- Workflow circular — 6 pasos -->
+    <section class="px-6 py-16 bg-[#0f172a] text-white">
       <div class="max-w-3xl mx-auto">
-        <p class="text-center text-sm font-medium text-blue-200 uppercase tracking-widest mb-10">${t.diff_title}</p>
-        <div class="space-y-8">
-          ${t.diff.map(d=>`
-          <div class="flex flex-col items-center text-center gap-3">
-            <span class="inline-block bg-[#2563eb] text-white text-sm font-bold px-8 py-2.5 rounded-md tracking-wide">${d.tag}</span>
-            <p class="text-gray-300 text-sm max-w-md leading-relaxed">${d.body}</p>
-          </div>`).join('<hr class="border-blue-900/50 max-w-xs mx-auto">')}
+        <h2 class="text-2xl font-bold mb-10 text-center">${t.workflow_title}</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+          ${t.workflow.map(s=>`
+          <div class="flex items-start gap-3 bg-white/5 border border-white/10 rounded-xl p-4">
+            <span class="w-8 h-8 rounded-full bg-[#2563eb] text-white text-sm font-bold flex items-center justify-center flex-shrink-0">${s.n}</span>
+            <div>
+              <p class="text-sm font-semibold text-white leading-tight">${s.label}</p>
+              <p class="text-xs text-gray-400 mt-0.5 leading-relaxed">${s.sub}</p>
+            </div>
+          </div>`).join('')}
         </div>
       </div>
     </section>
