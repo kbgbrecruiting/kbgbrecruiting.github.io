@@ -115,13 +115,9 @@ async function doLogin(pin) {
   if (!pin||pin.trim()==='') { showToast('Ingresá el PIN','error'); return; }
   App.loading=true; render();
   try {
-    const url=`${WEBHOOK}?action=auth&pin=${encodeURIComponent(pin.trim())}`;
-    const r=await fetch(url,{credentials:'omit',redirect:'follow'});
-    const text=await r.text();
-    let j; try { j=JSON.parse(text); } catch(pe) { showToast('Respuesta inválida: '+text.slice(0,60),'error'); App.loading=false; render(); return; }
+    const j = await apiPostPublic({ action:'login', data:{ pin: pin.trim() } });
     if (j.status==='ok') {
       App.user={...j.data,pin:pin.trim()};
-      // Load recruiters list once at login
       apiGet({action:'recruiters'}).then(r=>{ App.data.recruiters=r.data||[]; });
       navigate('panel','pipeline');
     }
