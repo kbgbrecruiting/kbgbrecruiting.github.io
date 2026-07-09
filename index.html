@@ -3824,12 +3824,7 @@ function renderApply() {
         <p class="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-2">Búsqueda abierta</p>
         <h1 class="text-2xl font-bold text-gray-900 mb-1">${b.puesto||''}</h1>
         ${b.cliente?`<p class="text-gray-500 text-sm mb-4">${b.cliente}</p>`:''}
-        ${b.descripcion?`<p class="text-sm text-gray-600 leading-relaxed mb-4">${b.descripcion}</p>`:''}
-        ${mustHaves.length?`
-        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-          <p class="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">Requisitos clave</p>
-          <ul class="space-y-1">${mustHaves.map(m=>`<li class="text-sm text-indigo-900 flex gap-2"><span class="text-indigo-400 flex-shrink-0">✓</span>${m}</li>`).join('')}</ul>
-        </div>`:''}
+        ${b.descripcion?`<div class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">${b.descripcion}</div>`:'<p class="text-sm text-gray-400 italic">Descripción no disponible.</p>'}
       </div>
     </div>
 
