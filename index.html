@@ -136,10 +136,10 @@ function navigate(view, section) {
 async function loadSection(section) {
   App.section=section; App.loading=true; render();
   try {
-    const rd = await apiPost({action:'get_data', data:{}});
-    App.data.busquedas = rd.data?.busquedas || [];
-    App.data.candidatos = rd.data?.candidatos || [];
-    App.data.leads = rd.data?.leads || [];
+    const rd = await apiGet({});
+    App.data.busquedas = rd.busquedas || rd.data?.busquedas || [];
+    App.data.candidatos = rd.candidatos || rd.data?.candidatos || [];
+    App.data.leads = rd.leads || rd.data?.leads || [];
     if (!App.data.busquedaActiva && App.data.busquedas.length) App.data.busquedaActiva=App.data.busquedas[0].id;
   } catch(e) { showToast('Error cargando datos: '+e.message,'error'); }
   App.loading=false; render();
