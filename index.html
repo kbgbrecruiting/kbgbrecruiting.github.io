@@ -395,23 +395,10 @@ function renderLanding() {
           <div class="grid md:grid-cols-2 gap-4">
             <div><label class="${lbl}">${t.f_nombre}</label><input name="contacto_nombre" required placeholder="Juan García" class="${inp}"></div>
             <div><label class="${lbl}">${t.f_wa}</label><input name="contacto_whatsapp" type="tel" required pattern="[\\d\\s\\+\\-\\(\\)]{6,}" placeholder="${t.f_wa_ph}" class="${inp}"></div>
-            <div><label class="${lbl}">${t.f_empresa}</label><input name="empresa" placeholder="Empresa SA" class="${inp}"></div>
+            <div><label class="${lbl}" id="lbl_empresa">${t.f_empresa} <span id="empresa_req" class="text-red-400">*</span></label><input name="empresa" id="lead_empresa" required placeholder="Empresa SA" class="${inp}"></div>
             <div><label class="${lbl}">${t.f_email}</label><input name="contacto_email" type="email" placeholder="vos@empresa.com" class="${inp}"></div>
-            <div><label class="${lbl}">${t.f_puesto}</label><input name="puesto" placeholder="Head of Marketing" class="${inp}"></div>
-            <div><label class="${lbl}">${t.f_seniority}</label>
-              <select name="seniority" class="${sel}"><option value="">${t.f_sel}</option><option>Junior</option><option>Semi-senior</option><option>Senior</option><option>Lead</option><option>Manager</option><option>Director</option></select>
-            </div>
+            <div class="md:col-span-2"><label class="${lbl}" id="lbl_puesto">${t.f_puesto} <span id="puesto_req" class="text-red-400">*</span></label><input name="puesto" id="lead_puesto" required placeholder="Head of Marketing" class="${inp}"></div>
           </div>
-          <div class="grid grid-cols-3 gap-3">
-            <div><label class="${lbl}">${t.f_moneda}</label><select name="moneda" class="${sel}"><option>ARS</option><option>USD</option></select></div>
-            <div><label class="${lbl}">${t.f_min}</label><input name="banda_salarial_min" type="number" placeholder="0" class="${inp}"></div>
-            <div><label class="${lbl}">${t.f_max}</label><input name="banda_salarial_max" type="number" placeholder="0" class="${inp}"></div>
-          </div>
-          <div>
-            <label class="${lbl}">${t.f_modalidad}</label>
-            <div class="flex gap-5 mt-2">${t.f_mod.map(m=>`<label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer"><input type="radio" name="modalidad" value="${m.toLowerCase()}" class="accent-blue-500"> ${m}</label>`).join('')}</div>
-          </div>
-          <div><label class="${lbl}">${t.f_detalle}</label><textarea name="detalle_rol" rows="3" class="${inp} resize-none" placeholder="${t.f_detalle_ph}"></textarea></div>
           <button type="submit" id="leadSubmitBtn" style="background:#2563eb" class="w-full text-white py-3 rounded font-black text-sm hover:opacity-90 transition tracking-wide">${t.f_submit}</button>
         </form>
       </div>
@@ -3696,10 +3683,10 @@ async function leadUploadJD(input) {
   const t = LANDING_COPY[_landingLang];
   const statusEl = document.getElementById('leadJdStatus');
   const textoEl = document.getElementById('leadJdTexto');
+  statusEl.className = 'ml-3 text-xs text-gray-400';
   statusEl.textContent = t.f_jd_processing;
 
   try {
-    // Read file as base64
     const base64 = await new Promise((res, rej) => {
       const reader = new FileReader();
       reader.onload = e => res(e.target.result.split(',')[1]);
@@ -3707,38 +3694,28 @@ async function leadUploadJD(input) {
       reader.readAsDataURL(file);
     });
 
-    // Extract text + parse with AI
     const r = await apiPostPublic({ action: 'parsear_jd_publico', data: { filename: file.name, base64data: base64 } });
     if (r.status !== 'ok') throw new Error(r.message || 'Error');
 
     const p = r.data;
-    // Store full JD text for the lead submission
     if (textoEl) textoEl.value = p.jd_texto || '';
 
-    // Pre-fill form fields
-    const f = document.getElementById('leadForm');
-    const set = (name, val) => { if (!val && val !== 0) return; const el = f.querySelector(`[name="${name}"]`); if (el) el.value = val; };
-    const setSelect = (name, val) => {
-      if (!val) return;
-      const el = f.querySelector(`[name="${name}"]`);
-      if (!el) return;
-      const opt = [...el.options].find(o => o.value.toLowerCase() === String(val).toLowerCase());
-      if (opt) el.value = opt.value;
-    };
-    set('empresa', p.cliente);
-    set('puesto', p.puesto);
-    set('banda_salarial_min', p.banda_salarial_min);
-    set('banda_salarial_max', p.banda_salarial_max);
-    setSelect('seniority', p.seniority);
-    setSelect('modalidad', p.modalidad);
-    setSelect('moneda', p.moneda);
-    if (p.detalle_rol) set('detalle_rol', p.detalle_rol);
+    // Solo llenar empresa y puesto
+    const empresaEl = document.getElementById('lead_empresa');
+    const puestoEl = document.getElementById('lead_puesto');
+    if (empresaEl && p.cliente) empresaEl.value = p.cliente;
+    if (puestoEl && p.puesto) puestoEl.value = p.puesto;
+
+    // Con JD cargada, empresa y puesto dejan de ser obligatorios
+    if (empresaEl) { empresaEl.required = false; document.getElementById('empresa_req').style.display='none'; }
+    if (puestoEl) { puestoEl.required = false; document.getElementById('puesto_req').style.display='none'; }
 
     statusEl.textContent = t.f_jd_done;
-    statusEl.className = 'ml-3 text-xs text-green-600 font-medium';
+    statusEl.className = 'ml-3 text-xs text-green-500 font-medium';
   } catch(err) {
-    statusEl.textContent = '❌ Error al procesar el archivo';
-    statusEl.className = 'ml-3 text-xs text-red-500';
+    statusEl.textContent = '❌ ' + (err.message || 'Error al procesar el archivo');
+    statusEl.className = 'ml-3 text-xs text-red-400';
+    console.error('leadUploadJD error:', err);
   }
 }
 
