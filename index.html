@@ -191,6 +191,13 @@ const LANDING_COPY = {
       ['🤝','Trato directo','Hablás conmigo, no con un equipo de coordinadores. Una sola persona de punta a punta.'],
       ['✅','Garantía de reposición','Si el candidato no supera el período de prueba, repongo sin costo adicional.'],
     ],
+    diff_title: 'Nuestro servicio es:',
+    diff: [
+      { tag:'SIN RIESGO', heading:'Sin riesgo', body:'No se cobran honorarios por adelantado. Si no contratás al candidato, no hay cargo.' },
+      { tag:'NO EXCLUSIVO', heading:'No exclusivo', body:'Las búsquedas pueden abrirse tanto por el cliente como por otras consultoras contratadas.' },
+      { tag:'CON GARANTÍA', heading:'Con garantía', body:'Si el candidato no supera el período de prueba (60 días desde el inicio), encontramos una nueva persona sin costo adicional.' },
+      { tag:'RÁPIDO', heading:'Entrega rápida', body:'Presentamos candidatos calificados en 2 a 4 días hábiles.' },
+    ],
     form_title: 'Contanos sobre tu búsqueda',
     form_sub: 'Completá el formulario y te contacto en menos de 24 horas hábiles.',
     f_empresa: 'Empresa', f_nombre: 'Tu nombre *', f_email: 'Email', f_wa: 'WhatsApp *', f_wa_ph: 'Ej: +1 305 123 4567',
@@ -222,6 +229,13 @@ const LANDING_COPY = {
       ['⚡','Speed without sacrificing quality','Agile process and constant communication. You always know where the search stands.'],
       ['🤝','Direct contact','You talk to me, not a team of coordinators. One person from start to finish.'],
       ['✅','Replacement guarantee',"If the candidate doesn't pass the probation period, I replace them at no extra cost."],
+    ],
+    diff_title: 'Our service is:',
+    diff: [
+      { tag:'RISK-FREE', heading:'Risk-free', body:'No upfront fees are charged. If you do not hire the candidate, there is no charge.' },
+      { tag:'NON-EXCLUSIVE', heading:'Non-exclusive', body:'Searches can be opened either by the client or by other consulting firms contracted by the client.' },
+      { tag:'GUARANTEED', heading:'Guaranteed', body:"In case of candidate's termination within the trial period (60 days from start date), we will find a new person at no additional cost." },
+      { tag:'FAST TURNAROUND', heading:'Fast turnaround', body:'We present qualified candidates within 2–4 business days.' },
     ],
     form_title: 'Tell us about your search',
     form_sub: "Fill out the form and I'll get back to you within 24 business hours.",
@@ -297,6 +311,20 @@ function renderLanding() {
             <span class="text-2xl">${icon}</span>
             <div><p class="font-semibold text-gray-900 mb-1">${title}</p><p class="text-gray-500 text-sm leading-relaxed">${desc}</p></div>
           </div>`).join('')}
+        </div>
+      </div>
+    </section>
+
+    <!-- Diferenciales -->
+    <section class="px-6 py-16 bg-[#1a2a4a] text-white">
+      <div class="max-w-3xl mx-auto">
+        <p class="text-center text-sm font-medium text-blue-200 uppercase tracking-widest mb-10">${t.diff_title}</p>
+        <div class="space-y-8">
+          ${t.diff.map(d=>`
+          <div class="flex flex-col items-center text-center gap-3">
+            <span class="inline-block bg-[#2563eb] text-white text-sm font-bold px-8 py-2.5 rounded-md tracking-wide">${d.tag}</span>
+            <p class="text-gray-300 text-sm max-w-md leading-relaxed">${d.body}</p>
+          </div>`).join('<hr class="border-blue-900/50 max-w-xs mx-auto">')}
         </div>
       </div>
     </section>
