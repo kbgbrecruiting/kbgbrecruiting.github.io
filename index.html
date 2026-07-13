@@ -3757,71 +3757,145 @@ async function initApply(bid) {
 
 function renderApply() {
   if (App._applyState==='loading') return `
-  <div class="min-h-screen flex items-center justify-center">
+  <div class="min-h-screen flex items-center justify-center bg-gray-50">
     <div class="w-8 h-8 border-4 border-gray-200 border-t-gray-900 rounded-full animate-spin"></div>
   </div>`;
   if (App._applyState==='error') return `
-  <div class="min-h-screen flex items-center justify-center px-6">
+  <div class="min-h-screen flex items-center justify-center px-6 bg-gray-50">
     <div class="text-center max-w-sm">
+      <p class="text-4xl mb-4">🔍</p>
       <p class="text-lg font-bold text-gray-900 mb-2">No encontramos esta búsqueda</p>
-      <p class="text-sm text-gray-500">${App._applyError||'Puede que ya no esté activa.'}</p>
+      <p class="text-sm text-gray-500">${App._applyError||'Puede que ya no esté activa o el link sea incorrecto.'}</p>
     </div>
   </div>`;
   if (App._applyState==='sent') return `
-  <div class="min-h-screen flex items-center justify-center px-6">
+  <div class="min-h-screen flex items-center justify-center px-6 bg-gray-50">
     <div class="text-center max-w-sm">
-      <p class="text-4xl mb-3">✅</p>
-      <p class="text-lg font-bold text-gray-900 mb-2">¡Listo, recibimos tu postulación!</p>
-      <p class="text-sm text-gray-500">Vamos a revisar tu perfil y te contactamos pronto.</p>
+      <p class="text-5xl mb-4">✅</p>
+      <p class="text-xl font-bold text-gray-900 mb-2">¡Postulación recibida!</p>
+      <p class="text-sm text-gray-500 mb-6">Vamos a revisar tu perfil y te contactamos pronto.</p>
+      <p class="text-xs text-gray-400">KBGB Recruiting</p>
     </div>
   </div>`;
 
   const b = App._applyData;
-  const mustHaves = toArr(b.must_haves||'');
-  const preguntas = toArr(b.preguntas_filtro||'');
-  const lbl = 'block text-sm font-semibold text-gray-700 mb-1';
-  const inp = inputCls();
+  // Fix: usar los campos correctos del sheet
+  const jdTexto = b.jd_texto || b.descripcion || '';
+  const preguntas = toArr(b.notas_alineamiento || b.preguntas_filtro || '');
+  // Detectar si es búsqueda internacional (USD = pedir email, ARS = pedir WA)
+  const isIntl = b.moneda === 'USD';
+  const lbl = 'block text-sm font-semibold text-gray-700 mb-1.5';
+  const inp = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent';
+
+  // Armar tags de info
+  const tags = [
+    b.seniority && `<span class="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">${b.seniority}</span>`,
+    b.modalidad && `<span class="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">${b.modalidad}</span>`,
+    b.moneda && b.banda_salarial_min && `<span class="px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">💰 ${b.moneda} ${Number(b.banda_salarial_min).toLocaleString()}${b.banda_salarial_max?'–'+Number(b.banda_salarial_max).toLocaleString():''}</span>`,
+  ].filter(Boolean).join('');
+
   return `
   <div class="min-h-screen flex flex-col bg-gray-50">
-    <header class="bg-gray-900 text-white px-6 py-4">
-      <span class="font-bold text-lg tracking-tight">KBGB Recruiting</span>
+
+    <!-- Header -->
+    <header style="background:#111" class="px-6 py-4 flex items-center gap-3">
+      <span class="font-black text-white text-lg tracking-tight">KBGB</span>
+      <span class="text-gray-500 text-sm">Recruiting</span>
     </header>
 
-    <!-- Info de la búsqueda -->
-    <div class="bg-white border-b border-gray-200 px-6 py-8">
-      <div class="max-w-xl mx-auto">
-        <p class="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-2">Búsqueda abierta</p>
-        <h1 class="text-2xl font-bold text-gray-900 mb-1">${b.puesto||''}</h1>
-        ${b.cliente?`<p class="text-gray-500 text-sm mb-4">${b.cliente}</p>`:''}
-        ${b.descripcion?`<div class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">${b.descripcion}</div>`:'<p class="text-sm text-gray-400 italic">Descripción no disponible.</p>'}
+    <!-- Hero de la búsqueda -->
+    <div class="bg-white border-b border-gray-200">
+      <div class="max-w-2xl mx-auto px-6 py-10">
+        <p class="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">Posición abierta</p>
+        <h1 class="text-3xl font-black text-gray-900 mb-2 leading-tight">${b.puesto||'Búsqueda'}</h1>
+        ${b.cliente?`<p class="text-gray-500 font-medium mb-4">${b.cliente}</p>`:''}
+        ${tags?`<div class="flex flex-wrap gap-2 mb-6">${tags}</div>`:''}
+
+        ${jdTexto?`
+        <div class="border-t border-gray-100 pt-6">
+          <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Descripción del rol</p>
+          <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">${jdTexto}</div>
+        </div>`:''}
+
+        ${b.must_haves?`
+        <div class="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+          <p class="text-xs font-bold text-blue-700 uppercase tracking-widest mb-2">Requisitos clave</p>
+          <div class="text-sm text-blue-900 leading-relaxed whitespace-pre-line">${b.must_haves}</div>
+        </div>`:''}
       </div>
     </div>
 
     <!-- Formulario -->
-    <section class="px-6 py-10 max-w-xl mx-auto w-full">
-      <h2 class="text-lg font-bold text-gray-900 mb-6">Tu información</h2>
-      <form id="applyForm" class="space-y-4" onsubmit="submitPostulacion(event,'${App._applyBid}')">
-        <div><label class="${lbl}">Nombre completo *</label><input name="nombre" required placeholder="Juan García" class="${inp}"></div>
-        <div><label class="${lbl}">WhatsApp *</label><input name="contacto_telefono" type="tel" required pattern="[\\d\\s\\+\\-\\(\\)]{6,}" placeholder="+54 9 11 1234 5678" class="${inp}"></div>
-        <div><label class="${lbl}">Email</label><input name="contacto_email" type="email" placeholder="vos@mail.com" class="${inp}"></div>
+    <div class="max-w-2xl mx-auto px-6 py-10 w-full">
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+        <h2 class="text-xl font-black text-gray-900 mb-1">Postulate a este rol</h2>
+        <p class="text-sm text-gray-500 mb-7">Completá el formulario y nos ponemos en contacto.</p>
 
-        ${preguntas.length?`
-        <div class="pt-2">
-          <p class="text-sm font-bold text-gray-800 mb-3">Preguntas de filtro</p>
-          <div class="space-y-3">
-            ${preguntas.map((p,i)=>`<div><label class="${lbl}">${p}</label><input name="filtro_${i}" placeholder="Tu respuesta..." class="${inp}"></div>`).join('')}
+        <form id="applyForm" class="space-y-5" onsubmit="submitPostulacion(event,'${App._applyBid}')">
+
+          <!-- Datos de contacto -->
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div class="sm:col-span-2">
+              <label class="${lbl}">Nombre completo <span class="text-red-500">*</span></label>
+              <input name="nombre" required placeholder="Juan García" class="${inp}">
+            </div>
+            ${isIntl?`
+            <div class="sm:col-span-2">
+              <label class="${lbl}">Email <span class="text-red-500">*</span></label>
+              <input name="contacto_email" type="email" required placeholder="you@email.com" class="${inp}">
+            </div>
+            <div>
+              <label class="${lbl}">Phone / WhatsApp</label>
+              <input name="contacto_telefono" type="tel" placeholder="+1 555 0000" class="${inp}">
+            </div>`:`
+            <div>
+              <label class="${lbl}">WhatsApp <span class="text-red-500">*</span></label>
+              <input name="contacto_telefono" type="tel" required pattern="[\\d\\s\\+\\-\\(\\)]{6,}" placeholder="+54 9 11 1234 5678" class="${inp}">
+            </div>
+            <div>
+              <label class="${lbl}">Email</label>
+              <input name="contacto_email" type="email" placeholder="vos@mail.com" class="${inp}">
+            </div>`}
+            <div class="${isIntl?'':''}">
+              <label class="${lbl}">LinkedIn</label>
+              <input name="linkedin" type="url" placeholder="linkedin.com/in/tu-perfil" class="${inp}">
+            </div>
           </div>
-        </div>`:''}
 
-        <div class="pt-2">
-          <label class="${lbl}">Tu CV (PDF) *</label>
-          <input type="file" id="applyCvFile" accept=".pdf" required class="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-900 file:text-white hover:file:bg-gray-700 cursor-pointer">
-          <p id="applyCvStatus" class="text-xs text-gray-400 mt-2"></p>
-        </div>
+          ${preguntas.length?`
+          <!-- Preguntas filtro -->
+          <div class="pt-2 border-t border-gray-100">
+            <p class="text-sm font-bold text-gray-800 mb-4 mt-4">Algunas preguntas rápidas</p>
+            <div class="space-y-4">
+              ${preguntas.map((p,i)=>`
+              <div>
+                <label class="${lbl}">${p}</label>
+                <input name="filtro_${i}" placeholder="Tu respuesta..." class="${inp}">
+              </div>`).join('')}
+            </div>
+          </div>`:''}
 
-        <button type="submit" id="applySubmitBtn" class="w-full bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-gray-700 transition text-sm mt-2">Postularme →</button>
-      </form>
-    </section>
+          <!-- CV -->
+          <div class="pt-2 border-t border-gray-100">
+            <label class="${lbl} mt-4 block">CV en PDF <span class="text-red-500">*</span></label>
+            <div class="mt-1 border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-gray-400 transition cursor-pointer" onclick="document.getElementById('applyCvFile').click()">
+              <p class="text-3xl mb-2">📄</p>
+              <p class="text-sm font-semibold text-gray-700">Hacé clic para subir tu CV</p>
+              <p class="text-xs text-gray-400 mt-1">Solo PDF · Máx 10MB</p>
+              <input type="file" id="applyCvFile" accept=".pdf" required class="hidden" onchange="document.getElementById('applyFileName').textContent=this.files[0]?.name||''">
+            </div>
+            <p id="applyFileName" class="text-xs text-gray-500 mt-2 text-center font-medium"></p>
+            <p id="applyCvStatus" class="text-xs text-blue-600 mt-1 text-center"></p>
+          </div>
+
+          <button type="submit" id="applySubmitBtn" class="w-full py-3.5 rounded-xl font-black text-sm transition text-white" style="background:#111">
+            Enviar postulación →
+          </button>
+        </form>
+      </div>
+
+      <p class="text-center text-xs text-gray-400 mt-6">© KBGB Recruiting · <a href="mailto:kbgb.recruiting@gmail.com" class="hover:text-gray-600">kbgb.recruiting@gmail.com</a></p>
+    </div>
   </div>`;
 }
 
