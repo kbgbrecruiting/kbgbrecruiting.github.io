@@ -3821,20 +3821,21 @@ function renderApply() {
         <h1 class="text-3xl md:text-4xl font-black text-white mb-3 leading-tight">${b.puesto||'Búsqueda'}</h1>
         ${b.cliente?`<p class="text-gray-400 font-medium text-lg mb-5">${b.cliente}</p>`:''}
 
-        <!-- Tags -->
+        <!-- Tags: seniority y modalidad solamente, sin banda salarial -->
         <div class="flex flex-wrap gap-2 mb-8">
           ${b.seniority?`<span style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12)" class="px-3 py-1.5 text-gray-300 rounded text-xs font-semibold">${b.seniority}</span>`:''}
           ${b.modalidad?`<span style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12)" class="px-3 py-1.5 text-gray-300 rounded text-xs font-semibold">${b.modalidad}</span>`:''}
-          ${bandaSalarial?`<span style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);color:#f59e0b" class="px-3 py-1.5 rounded text-xs font-bold">💰 ${bandaSalarial}</span>`:''}
         </div>
 
         ${jdHtml?`
         <div style="border-top:1px solid rgba(255,255,255,0.08)" class="pt-8">
           <p class="text-xs font-bold uppercase tracking-widest mb-5 text-gray-500">Descripción del rol</p>
-          <div style="max-height:320px;overflow:hidden;mask-image:linear-gradient(to bottom,black 60%,transparent 100%)" id="jdPreview">
-            <p class="text-gray-400 text-sm leading-relaxed mb-3">${jdHtml}</p>
+          <div id="jdPreview" style="overflow:hidden;max-height:280px;mask-image:linear-gradient(to bottom,black 50%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,black 50%,transparent 100%)">
+            <p class="text-gray-400 text-sm leading-relaxed">${jdHtml}</p>
           </div>
-          <button onclick="document.getElementById('jdPreview').style.maxHeight='none';document.getElementById('jdPreview').style.maskImage='none';this.style.display='none'" class="text-xs font-semibold mt-3" style="color:#f59e0b">Ver descripción completa ↓</button>
+          <button onclick="var el=document.getElementById('jdPreview');el.style.maxHeight='none';el.style.maskImage='none';el.style.webkitMaskImage='none';this.style.display='none'" class="text-xs font-semibold mt-4 block" style="color:#f59e0b">
+            Ver descripción completa ↓
+          </button>
         </div>`:''}
 
         ${b.must_haves?`
