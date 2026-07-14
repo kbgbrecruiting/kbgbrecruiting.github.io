@@ -255,7 +255,7 @@ function renderLanding() {
 
     <!-- NAV -->
     <nav style="background:#000;border-bottom:1px solid rgba(255,255,255,0.08)" class="px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-      <span class="font-bold text-white text-lg tracking-widest">KBGB</span>
+      <img src="logo.png" alt="KBGB Recruiting" style="height:32px;width:auto" onerror="this.style.display='none'">
       <div class="flex items-center gap-3">
         <button onclick="toggleLandingLang()" class="text-xs px-3 py-1.5 rounded border border-white/20 text-gray-400 hover:text-white hover:border-white/50 transition">
           ${isEN?'🇦🇷 ES':'🇺🇸 EN'}
@@ -272,9 +272,8 @@ function renderLanding() {
         <!-- Texto -->
         <div class="flex-1 text-center md:text-left">
           <p class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:#f59e0b">${t.role}</p>
-          <div class="flex items-center gap-3 justify-center md:justify-start mb-2">
-            <img src="logo.png" alt="KBGB" style="width:36px;height:auto" onerror="this.style.display='none'">
-            <h1 class="text-4xl md:text-5xl font-black leading-tight" style="color:#2563eb">${t.headline}</h1>
+          <div class="flex items-center justify-center md:justify-start mb-2">
+            <img src="logo.png" alt="KBGB Recruiting" style="height:72px;width:auto" onerror="this.style.display='none'">
           </div>
           <div class="flex gap-0 my-5 justify-center md:justify-start">
             <div style="height:3px;width:80px;background:linear-gradient(90deg,#2563eb,#60a5fa)"></div>
@@ -3093,8 +3092,9 @@ async function descargarNotasCandidato(id) {
   const expStr = c.expectativa_salarial ? String(c.expectativa_salarial) : '';
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${c.nombre}</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a1a;background:#fff;padding:56px 64px;max-width:800px;margin:0 auto}
+body{font-family:'Montserrat',sans-serif;color:#1a1a1a;background:#fff;padding:56px 64px;max-width:800px;margin:0 auto}
 /* HEADER */
 .header{margin-bottom:40px}
 .header-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
@@ -3103,24 +3103,24 @@ body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a1a;backg
 .logo-name{font-size:13px;font-weight:900;letter-spacing:.06em;color:#1a1a1a}
 .logo-sub{font-size:10px;font-weight:500;color:#999;letter-spacing:.08em;text-transform:uppercase}
 .header-date{font-size:11px;color:#aaa;text-align:right}
-.header-divider{height:3px;background:#f59e0b;border-radius:2px;margin-bottom:24px}
+.header-divider{height:3px;background:linear-gradient(90deg,#0B2545,#4A9ED6);border-radius:2px;margin-bottom:24px}
 .candidate-name{font-size:36px;font-weight:900;letter-spacing:-.8px;line-height:1.1;margin-bottom:8px}
 .candidate-role{font-size:15px;color:#555;font-weight:500;display:flex;align-items:center;gap:8px}
 .candidate-role .sep{color:#ddd}
 .candidate-company{font-weight:700;color:#1a1a1a}
 /* SECTIONS */
 .section{margin-bottom:34px}
-.sec-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;color:#f59e0b;margin-bottom:10px}
+.sec-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;color:#0B2545;margin-bottom:10px}
 .sec-body{font-size:14px;line-height:1.9;color:#333;min-height:20px}
 .bullets-edit{white-space:pre-wrap;font-size:14px;line-height:1.85;color:#333}
 /* CONTACT GRID */
 .contact-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0}
 .contact-item{padding:9px 0;border-bottom:1px solid #f5f5f5;display:flex;flex-direction:column;gap:2px}
 .contact-item:nth-child(odd){padding-right:24px}
-.contact-key{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#f59e0b}
+.contact-key{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#0B2545}
 .contact-val{font-size:13px;color:#333;font-weight:500}
 /* FOOTER */
-.footer{margin-top:52px;padding-top:16px;border-top:2px solid #f59e0b;display:flex;justify-content:space-between;align-items:center}
+.footer{margin-top:52px;padding-top:16px;border-top:2px solid #0B2545;display:flex;justify-content:space-between;align-items:center}
 .footer-left{display:flex;align-items:center;gap:8px}
 .footer-left img{width:20px;height:auto;opacity:.7}
 .footer-brand{font-size:10px;font-weight:800;color:#999;letter-spacing:.08em;text-transform:uppercase}
@@ -3132,8 +3132,8 @@ body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1a1a;backg
 /* TOOLBAR */
 .toolbar{position:fixed;top:0;left:0;right:0;background:#1a1a1a;color:#fff;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.25)}
 .toolbar-hint{font-size:11px;color:#9ca3af}
-.print-btn{background:#f59e0b;color:#1a1a1a;border:none;padding:8px 20px;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:.02em}
-.print-btn:hover{background:#fbbf24}
+.print-btn{background:#0B2545;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:.02em}
+.print-btn:hover{background:#163a6b}
 body{padding-top:108px}
 @media print{
   .toolbar{display:none}
