@@ -3100,56 +3100,46 @@ async function descargarNotasCandidato(id) {
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Montserrat',sans-serif;color:#1a1a1a;background:#fff;padding:0;max-width:900px;margin:0 auto}
-/* DARK HEADER BLOCK */
-.header{background:#07101f;padding:36px 64px 44px;margin-bottom:0}
-.header-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}
-.header-date{font-size:11px;color:rgba(255,255,255,0.35);text-align:right;font-weight:500;letter-spacing:.04em}
-/* Segmented gradient divider — 3 dashes like the PDF */
-.header-divider{display:flex;gap:7px;margin-bottom:32px}
-.header-divider i:nth-child(1){flex:1;height:2px;background:linear-gradient(90deg,#00d4ff,#2791ef);border-radius:1px}
-.header-divider i:nth-child(2){flex:2.8;height:2px;background:linear-gradient(90deg,#2791ef,#1e50cc);border-radius:1px}
-.header-divider i:nth-child(3){flex:0.7;height:2px;background:#1e50cc;border-radius:1px}
-.candidate-name{font-size:38px;font-weight:900;letter-spacing:-.8px;line-height:1.1;margin-bottom:10px;color:#fff}
-.candidate-role{font-size:14px;color:rgba(255,255,255,0.45);font-weight:500;display:flex;align-items:center;gap:8px}
-.candidate-role .sep{color:rgba(255,255,255,0.2)}
-.candidate-company{font-weight:700;color:rgba(255,255,255,0.7)}
-/* CONTENT AREA */
-.content{padding:44px 64px}
+body{font-family:'Montserrat',sans-serif;color:#1a1a1a;background:#fff;padding:56px 64px;max-width:800px;margin:0 auto}
+/* HEADER */
+.header{margin-bottom:40px}
+.header-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.logo-area{display:flex;align-items:center;gap:10px}
+.header-date{font-size:11px;color:#aaa;text-align:right}
+.header-divider{height:3px;background:linear-gradient(90deg,#0D2147,#3B9EFF);border-radius:2px;margin-bottom:24px}
+.candidate-name{font-size:36px;font-weight:900;letter-spacing:-.8px;line-height:1.1;margin-bottom:8px}
+.candidate-role{font-size:15px;color:#555;font-weight:500;display:flex;align-items:center;gap:8px}
+.candidate-role .sep{color:#ddd}
+.candidate-company{font-weight:700;color:#1a1a1a}
 /* SECTIONS */
-.section{margin-bottom:36px}
-.sec-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.18em;color:#2791ef;margin-bottom:10px}
-.sec-body{font-size:13.5px;line-height:1.9;color:#333;min-height:20px}
-.bullets-edit{white-space:pre-wrap;font-size:13.5px;line-height:1.85;color:#333}
+.section{margin-bottom:34px}
+.sec-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;color:#0D2147;margin-bottom:10px}
+.sec-body{font-size:14px;line-height:1.9;color:#333;min-height:20px}
+.bullets-edit{white-space:pre-wrap;font-size:14px;line-height:1.85;color:#333}
 /* CONTACT GRID */
 .contact-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0}
-.contact-item{padding:9px 0;border-bottom:1px solid #f0f0f0;display:flex;flex-direction:column;gap:2px}
+.contact-item{padding:9px 0;border-bottom:1px solid #f5f5f5;display:flex;flex-direction:column;gap:2px}
 .contact-item:nth-child(odd){padding-right:24px}
-.contact-key{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#2791ef}
+.contact-key{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#0D2147}
 .contact-val{font-size:13px;color:#333;font-weight:500}
-/* FOOTER DIVIDER */
-.footer-divider{display:flex;gap:7px;margin:0 64px}
-.footer-divider i:nth-child(1){flex:1;height:2px;background:linear-gradient(90deg,#00d4ff,#2791ef)}
-.footer-divider i:nth-child(2){flex:2.8;height:2px;background:linear-gradient(90deg,#2791ef,#1e50cc)}
-.footer-divider i:nth-child(3){flex:0.7;height:2px;background:#1e50cc}
 /* FOOTER */
-.footer{padding:16px 64px 40px;display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-.footer-left{display:flex;align-items:center;gap:10px}
-.footer-brand{font-size:10px;font-weight:800;color:#aaa;letter-spacing:.1em;text-transform:uppercase}
-.footer-ref{font-size:11px;color:#ccc}
+.footer{margin-top:52px;padding-top:16px;border-top:2px solid #0D2147;display:flex;justify-content:space-between;align-items:center}
+.footer-left{display:flex;align-items:center;gap:8px}
+.footer-brand{font-size:10px;font-weight:800;color:#999;letter-spacing:.08em;text-transform:uppercase}
+.footer-ref{font-size:11px;color:#bbb}
 /* EDIT */
 [contenteditable]{outline:none;border-radius:2px;min-width:4px}
-[contenteditable]:hover{background:#e8f4ff}
-[contenteditable]:focus{background:#e8f4ff;box-shadow:0 0 0 2px #2791ef}
+[contenteditable]:hover{background:#fffbeb}
+[contenteditable]:focus{background:#fffbeb;box-shadow:0 0 0 2px #f59e0b}
 /* TOOLBAR */
-.toolbar{position:fixed;top:0;left:0;right:0;background:#07101f;color:#fff;padding:10px 24px;display:flex;justify-content:space-between;align-items:center;z-index:100;border-bottom:1px solid rgba(255,255,255,0.08)}
-.toolbar-hint{font-size:11px;color:#6b7280}
-.print-btn{background:#2791ef;color:#fff;border:none;padding:8px 22px;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.04em;font-family:'Montserrat',sans-serif}
-.print-btn:hover{background:#1e7dd6}
-body{padding-top:52px}
+.toolbar{position:fixed;top:0;left:0;right:0;background:#1a1a1a;color:#fff;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.toolbar-hint{font-size:11px;color:#9ca3af}
+.print-btn{background:#0D2147;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:.02em}
+.print-btn:hover{background:#163262}
+body{padding-top:108px}
 @media print{
   .toolbar{display:none}
-  body{padding-top:0}
+  body{padding:40px 52px;padding-top:40px}
   [contenteditable]:hover,[contenteditable]:focus{background:none!important;box-shadow:none!important}
 }
 </style>
@@ -3161,13 +3151,15 @@ body{padding-top:52px}
 
 <div class="header">
   <div class="header-top">
-    <div style="background:#0d3560;padding:5px 10px;display:inline-flex;flex-direction:column;align-items:center;gap:1px">
-      <span style="color:#fff;font-weight:900;font-size:15px;letter-spacing:0.04em;line-height:1;font-family:'Montserrat',sans-serif">KBGB</span>
-      <span style="color:#fff;font-size:6px;letter-spacing:0.22em;font-weight:600;font-family:'Montserrat',sans-serif">RECRUITING</span>
+    <div class="logo-area">
+      <div style="background:#0d3560;padding:5px 10px;display:inline-flex;flex-direction:column;align-items:center;gap:1px">
+        <span style="color:#fff;font-weight:900;font-size:15px;letter-spacing:0.04em;line-height:1;font-family:'Montserrat',sans-serif">KBGB</span>
+        <span style="color:#fff;font-size:6px;letter-spacing:0.22em;font-weight:600;font-family:'Montserrat',sans-serif">RECRUITING</span>
+      </div>
     </div>
     <div class="header-date" contenteditable="true">${fecha}</div>
   </div>
-  <div class="header-divider"><i></i><i></i><i></i></div>
+  <div class="header-divider"></div>
   <div class="candidate-name" contenteditable="true">${c.nombre}</div>
   <div class="candidate-role">
     <span contenteditable="true">${b.puesto||'—'}</span>
@@ -3175,7 +3167,6 @@ body{padding-top:52px}
     <span class="candidate-company" contenteditable="true">${b.cliente||'—'}</span>
   </div>
 </div>
-<div class="content">
 
 ${(()=>{
   const lines = resumen ? resumen.split(/\n|(?<=\.)\s+(?=[A-ZÁÉÍÓÚÜ])/).map(s=>s.replace(/^[•\-\*]\s*/,'').replace(/\.$/,'').trim()).filter(Boolean) : [];
@@ -3205,8 +3196,6 @@ ${(()=>{
   </div>
 </div>
 
-</div><!-- /content -->
-<div class="footer-divider"><i></i><i></i><i></i></div>
 <div class="footer">
   <div class="footer-left">
     <div style="background:#0d3560;padding:3px 7px;display:inline-flex;flex-direction:column;align-items:center;gap:0px">
