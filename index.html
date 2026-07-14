@@ -1365,7 +1365,7 @@ function fmtJD(tipo) {
   const sel = ta.value.substring(start, end);
   let repl = '';
   if (tipo === 'bold') repl = `**${sel||'texto'}**`;
-  if (tipo === 'bullet') repl = (sel ? sel.split('\n').map(l=>'• '+l).join('\n') : '• ');
+  if (tipo === 'bullet') repl = (sel ? sel.split('\n').map(l=>'• '+l.trim()).join('\n') : '• ');
   ta.setRangeText(repl, start, end, 'select');
   ta.focus();
 }
