@@ -1317,7 +1317,8 @@ function modalHeader(title) {
 // ═══════════════════════════════════════════════════════════════
 function modalPaginaCandidato(bid) {
   const b = App.data.busquedas.find(x=>x.id===bid)||{};
-  const applyUrl = `${window.location.origin}${window.location.pathname}?apply=${bid}&by=${App.user?.id||''}`;
+  const shortCode = bid.split('_').pop();
+  const applyUrl = `${window.location.origin}${window.location.pathname}?j=${shortCode}`;
   return `
   <div class="p-6 max-w-2xl w-full">
     ${modalHeader(`Página del candidato — ${b.puesto||''}`)}
@@ -3806,18 +3807,20 @@ async function submitLead(e) {
 // POSTULACIÓN PÚBLICA (apply page)
 // ═══════════════════════════════════════════════════════════════
 function copiarLinkPostulacion(bid) {
-  const by = App.user?.id ? `&by=${App.user.id}` : '';
-  const url = `${window.location.origin}${window.location.pathname}?apply=${bid}${by}`;
+  const shortCode = bid.split('_').pop();
+  const url = `${window.location.origin}${window.location.pathname}?j=${shortCode}`;
   navigator.clipboard.writeText(url).then(()=>showToast('Link de postulación copiado ✓'));
 }
 
-async function initApply(bid) {
-  App.view='apply'; App._applyState='loading'; App._applyBid=bid; render();
+async function initApply(param) {
+  App.view='apply'; App._applyState='loading'; render();
   try {
     const r = await apiGet({});
-    const busqueda = (r.busquedas||[]).find(b=>b.id===bid);
+    // param puede ser el id completo o el short code (últimos 4 chars del id)
+    const busqueda = (r.busquedas||[]).find(b=>b.id===param || b.id.endsWith('_'+param));
     if (!busqueda) throw new Error('Búsqueda no encontrada');
     App._applyData = busqueda;
+    App._applyBid = busqueda.id;
     App._applyState = 'ok';
   } catch(err) {
     App._applyState = 'error'; App._applyError = err.message;
@@ -3909,11 +3912,6 @@ function renderApply() {
           </button>
         </div>`:''}
 
-        ${b.must_haves?`
-        <div style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.2)" class="rounded-xl p-5 mt-6">
-          <p class="text-xs font-bold uppercase tracking-widest mb-3" style="color:#60a5fa">Requisitos clave</p>
-          <div class="text-gray-300 text-sm leading-relaxed whitespace-pre-line">${b.must_haves}</div>
-        </div>`:''}
       </div>
     </section>
 
@@ -4047,9 +4045,9 @@ async function submitPostulacion(e, bid) {
 // ═══════════════════════════════════════════════════════════════
 function attachEvents() {}
 
-const _applyParam = new URLSearchParams(window.location.search).get('apply');
-const _applyByParam = new URLSearchParams(window.location.search).get('by');
-if (_applyParam) { App._applyBy = _applyByParam||''; initApply(_applyParam); }
+const _qs = new URLSearchParams(window.location.search);
+const _applyParam = _qs.get('j') || _qs.get('apply'); // j = short code, apply = legacy
+if (_applyParam) { App._applyBy = _qs.get('by')||''; initApply(_applyParam); }
 else render();
 </script>
 </body>
