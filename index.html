@@ -3149,8 +3149,8 @@ body{padding-top:108px}
 </style>
 </head><body>
 <div class="toolbar">
-  <span class="toolbar-hint">✏ Hacé click en cualquier texto para editarlo · Enter agrega una línea, Backspace la borra</span>
-  <button class="print-btn" onclick="window.print()">Imprimir / PDF</button>
+  <span class="toolbar-hint">✏ Click any text to edit · Enter adds a line, Backspace removes it</span>
+  <button class="print-btn" onclick="window.print()">Print / PDF</button>
 </div>
 
 <div class="header">
@@ -3175,23 +3175,23 @@ body{padding-top:108px}
 
 ${(()=>{
   const lines = resumen ? resumen.split(/\n|(?<=\.)\s+(?=[A-ZÁÉÍÓÚÜ])/).map(s=>s.replace(/^[•\-\*]\s*/,'').replace(/\.$/,'').trim()).filter(Boolean) : [];
-  const text = lines.length ? lines.map(l=>'• '+l).join('\n') : '(completar)';
-  return `<div class="section"><div class="sec-label" contenteditable="true">Resumen del perfil</div><div class="sec-body bullets-edit" contenteditable="true" style="${lines.length?'':'color:#bbb'}">${text}</div></div>`;
+  const text = lines.length ? lines.map(l=>'• '+l).join('\n') : '(complete)';
+  return `<div class="section"><div class="sec-label" contenteditable="true">Profile Summary</div><div class="sec-body bullets-edit" contenteditable="true" style="${lines.length?'':'color:#bbb'}">${text}</div></div>`;
 })()}
 
 ${(()=>{
   const lines = c.notas ? String(c.notas).split(/\n|•/).map(s=>s.replace(/^[•\-\*]\s*/,'').trim()).filter(Boolean) : [];
-  const text = lines.length ? lines.map(l=>'• '+l).join('\n') : '(completar)';
-  return `<div class="section"><div class="sec-label" contenteditable="true">Comentarios</div><div class="sec-body bullets-edit" contenteditable="true" style="${lines.length?'':'color:#bbb'}">${text}</div></div>`;
+  const text = lines.length ? lines.map(l=>'• '+l).join('\n') : '(complete)';
+  return `<div class="section"><div class="sec-label" contenteditable="true">Comments</div><div class="sec-body bullets-edit" contenteditable="true" style="${lines.length?'':'color:#bbb'}">${text}</div></div>`;
 })()}
 
 <div class="section">
-  <div class="sec-label" contenteditable="true">Disponibilidad para entrevista</div>
-  <div class="sec-body" contenteditable="true">${c.disponibilidad||'A confirmar'}</div>
+  <div class="sec-label" contenteditable="true">Interview Availability</div>
+  <div class="sec-body" contenteditable="true">${c.disponibilidad||'To be confirmed'}</div>
 </div>
 
 <div class="section">
-  <div class="sec-label" contenteditable="true">Datos de contacto</div>
+  <div class="sec-label" contenteditable="true">Contact</div>
   <div class="contact-grid">
     ${c.contacto_email?`<div class="contact-item"><span class="contact-key" contenteditable="true">Email</span><span class="contact-val" contenteditable="true">${c.contacto_email}</span></div>`:''}
     ${c.contacto_telefono?`<div class="contact-item"><span class="contact-key" contenteditable="true">Teléfono</span><span class="contact-val" contenteditable="true">${c.contacto_telefono}</span></div>`:''}
