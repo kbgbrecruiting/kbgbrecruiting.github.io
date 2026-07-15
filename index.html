@@ -255,7 +255,10 @@ function renderLanding() {
 
     <!-- NAV -->
     <nav style="background:#000;border-bottom:1px solid rgba(255,255,255,0.08)" class="px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-      <img src="logo.png" style="height:38px;width:auto">
+      <div style="background:#0d3560;padding:5px 10px;display:inline-flex;flex-direction:column;align-items:center;gap:1px">
+        <span style="color:#fff;font-weight:900;font-size:15px;letter-spacing:0.04em;line-height:1;font-family:system-ui,sans-serif">KBGB</span>
+        <span style="color:#fff;font-size:6px;letter-spacing:0.22em;font-weight:600;font-family:system-ui,sans-serif">RECRUITING</span>
+      </div>
       <div class="flex items-center gap-3">
         <button onclick="toggleLandingLang()" class="text-xs px-3 py-1.5 rounded border border-white/20 text-gray-400 hover:text-white hover:border-white/50 transition">
           ${isEN?'🇦🇷 ES':'🇺🇸 EN'}
@@ -264,48 +267,30 @@ function renderLanding() {
       </div>
     </nav>
 
-    <!-- HERO -->
-    <section class="relative overflow-hidden" style="background:#000;display:flex;align-items:center">
-      <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 80% 70% at 60% 50%,rgba(39,145,239,0.13) 0%,transparent 70%)"></div>
-      <div class="max-w-6xl mx-auto px-6 py-16 md:py-24 w-full relative z-10">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20 items-center">
-
-          <!-- LEFT: texto -->
-          <div class="text-center md:text-left">
-            <p class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:#2791ef">${t.role}</p>
-            <div class="flex items-center justify-center md:justify-start mb-2">
-              <img src="logo.png" style="height:80px;width:auto">
-            </div>
-            <div class="flex gap-0 my-5 justify-center md:justify-start">
-              <div style="height:3px;width:80px;background:linear-gradient(90deg,#2563eb,#60a5fa)"></div>
-              <div style="height:3px;width:30px;background:linear-gradient(90deg,#60a5fa,transparent)"></div>
-            </div>
-            <p class="text-gray-400 text-base leading-relaxed max-w-lg">${t.bio}</p>
-            <p class="text-gray-500 text-sm italic mt-4">${t.slogan}</p>
-            <div class="flex gap-3 mt-8 flex-wrap justify-center md:justify-start">
-              <a href="#contacto" style="background:#2563eb" class="text-white px-6 py-3 rounded font-semibold text-sm hover:opacity-90 transition">${isEN?'Get in touch →':'Contactanos →'}</a>
-              <a href="https://www.linkedin.com/in/agustin-gonzalez-benegas-65a9a5173" target="_blank" class="text-gray-400 border border-white/20 px-6 py-3 rounded font-semibold text-sm hover:text-white hover:border-white/50 transition">LinkedIn →</a>
+    <!-- HERO — slide 2 style: texto grande, fondo negro, foto de Agustín -->
+    <section class="relative overflow-hidden" style="background:#000;min-height:88vh;display:flex;align-items:center">
+      <!-- Gradiente azul sutil de fondo -->
+      <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 70% 60% at 60% 50%,rgba(59,158,255,0.15) 0%,transparent 70%)"></div>
+      <div class="max-w-5xl mx-auto px-6 py-20 w-full flex flex-col items-center md:items-start relative z-10">
+        <!-- Texto -->
+        <div class="flex-1 text-center md:text-left">
+          <p class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:#2791ef">${t.role}</p>
+          <div class="flex items-center justify-center md:justify-start mb-2">
+            <div style="background:#0d3560;padding:12px 20px;display:inline-flex;flex-direction:column;align-items:center;gap:3px">
+              <span style="color:#fff;font-weight:900;font-size:36px;letter-spacing:0.04em;line-height:1;font-family:system-ui,sans-serif">KBGB</span>
+              <span style="color:#fff;font-size:10px;letter-spacing:0.28em;font-weight:600;font-family:system-ui,sans-serif">RECRUITING</span>
             </div>
           </div>
-
-          <!-- RIGHT: diferenciales con íconos -->
-          <div class="grid grid-cols-1 gap-3">
-            ${[
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>`, label: isEN?'Global Reach':'Alcance Global', desc: isEN?'Access to talent across Latin America, US and Europe':'Acceso a talento en Latam, EEUU y Europa' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`, label: isEN?'Senior Recruiters':'Recruiters Senior', desc: isEN?'10+ years placing high-impact talent':'10+ años colocando talento de alto impacto' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`, label: isEN?'Faster Hiring':'Contratación Ágil', desc: isEN?'Faster time-to-hire than traditional agencies':'Más rápido que las agencias tradicionales' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>`, label: isEN?'Personalized Approach':'Servicio Personalizado', desc: isEN?'We treat every search as our own':'Tratamos cada búsqueda como propia' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>`, label: isEN?'Lower Fees':'Honorarios Más Bajos', desc: isEN?'Most competitive rates on the market':'Las tarifas más competitivas del mercado' },
-            ].map(d=>`
-            <div style="border:1px solid rgba(39,145,239,0.2);border-radius:8px;background:rgba(39,145,239,0.05)" class="flex items-center gap-4 px-5 py-4">
-              <div style="background:rgba(39,145,239,0.15);border-radius:8px;padding:10px;color:#2791ef;flex-shrink:0">${d.icon}</div>
-              <div>
-                <p class="text-white text-sm font-bold tracking-wide">${d.label}</p>
-                <p class="text-gray-500 text-xs mt-0.5 leading-relaxed">${d.desc}</p>
-              </div>
-            </div>`).join('')}
+          <div class="flex gap-0 my-5 justify-center md:justify-start">
+            <div style="height:3px;width:80px;background:linear-gradient(90deg,#2563eb,#60a5fa)"></div>
+            <div style="height:3px;width:30px;background:linear-gradient(90deg,#60a5fa,transparent)"></div>
           </div>
-
+          <p class="text-gray-400 text-base leading-relaxed max-w-xl">${t.bio}</p>
+          <p class="text-gray-500 text-sm italic mt-4">${t.slogan}</p>
+          <div class="flex gap-3 mt-8 flex-wrap justify-center md:justify-start">
+            <a href="#contacto" style="background:#2563eb" class="text-white px-6 py-3 rounded font-semibold text-sm hover:opacity-90 transition">${isEN?'Get in touch →':'Contactanos →'}</a>
+            <a href="https://www.linkedin.com/in/agustin-gonzalez-benegas-65a9a5173" target="_blank" class="text-gray-400 border border-white/20 px-6 py-3 rounded font-semibold text-sm hover:text-white hover:border-white/50 transition">LinkedIn →</a>
+          </div>
         </div>
       </div>
     </section>
@@ -3168,7 +3153,10 @@ body{padding-top:108px}
 <div class="header">
   <div class="header-top">
     <div class="logo-area">
-      <img src="https://kbgbrecruiting.github.io/logo.png" style="height:40px;width:auto">
+      <div style="background:#0d3560;padding:5px 10px;display:inline-flex;flex-direction:column;align-items:center;gap:1px">
+        <span style="color:#fff;font-weight:900;font-size:15px;letter-spacing:0.04em;line-height:1;font-family:'Montserrat',sans-serif">KBGB</span>
+        <span style="color:#fff;font-size:6px;letter-spacing:0.22em;font-weight:600;font-family:'Montserrat',sans-serif">RECRUITING</span>
+      </div>
     </div>
     <div class="header-date" contenteditable="true">${fecha}</div>
   </div>
@@ -3211,7 +3199,10 @@ ${(()=>{
 
 <div class="footer">
   <div class="footer-left">
-    <img src="https://kbgbrecruiting.github.io/logo.png" style="height:28px;width:auto">
+    <div style="background:#0d3560;padding:3px 7px;display:inline-flex;flex-direction:column;align-items:center;gap:0px">
+      <span style="color:#fff;font-weight:900;font-size:9px;letter-spacing:0.04em;line-height:1;font-family:'Montserrat',sans-serif">KBGB</span>
+      <span style="color:#fff;font-size:4px;letter-spacing:0.2em;font-weight:600;font-family:'Montserrat',sans-serif">RECRUITING</span>
+    </div>
     <span class="footer-brand">KBGB Recruiting</span>
   </div>
   <span class="footer-ref" contenteditable="true">${b.puesto||''} · ${b.cliente||''}</span>
@@ -3890,7 +3881,10 @@ function renderApply() {
       <p class="text-2xl font-black text-white mb-2">Application received!</p>
       <p class="text-gray-400 text-sm mb-8">We'll review your profile and be in touch soon.</p>
       <div class="flex items-center justify-center">
-        <img src="logo.png" style="height:32px;width:auto;opacity:0.7">
+        <div style="background:#0d3560;padding:4px 8px;display:inline-flex;flex-direction:column;align-items:center;gap:1px">
+          <span style="color:#fff;font-weight:900;font-size:11px;letter-spacing:0.04em;line-height:1;font-family:system-ui,sans-serif">KBGB</span>
+          <span style="color:#fff;font-size:5px;letter-spacing:0.22em;font-weight:600;font-family:system-ui,sans-serif">RECRUITING</span>
+        </div>
       </div>
     </div>
   </div>`;
@@ -3923,7 +3917,10 @@ function renderApply() {
 
     <!-- NAV -->
     <nav style="background:#000;border-bottom:1px solid rgba(255,255,255,0.08)" class="px-6 py-4 flex items-center gap-3 sticky top-0 z-50">
-      <img src="logo.png" style="height:36px;width:auto">
+      <div style="background:#0d3560;padding:5px 10px;display:inline-flex;flex-direction:column;align-items:center;gap:1px">
+        <span style="color:#fff;font-weight:900;font-size:15px;letter-spacing:0.04em;line-height:1;font-family:system-ui,sans-serif">KBGB</span>
+        <span style="color:#fff;font-size:6px;letter-spacing:0.22em;font-weight:600;font-family:system-ui,sans-serif">RECRUITING</span>
+      </div>
     </nav>
 
     <!-- HERO -->
@@ -4018,7 +4015,10 @@ function renderApply() {
         </form>
 
         <p class="text-center text-xs text-gray-700 mt-8">
-          <img src="logo.png" style="height:18px;width:auto;vertical-align:middle;margin-right:5px;opacity:0.6">KBGB Recruiting · <a href="mailto:kbgb.recruiting@gmail.com" class="hover:text-gray-400 transition">kbgb.recruiting@gmail.com</a>
+          <span style="background:#0d3560;padding:2px 5px;display:inline-flex;flex-direction:column;align-items:center;gap:0px;vertical-align:middle;margin-right:5px">
+            <span style="color:#fff;font-weight:900;font-size:8px;letter-spacing:0.04em;line-height:1;font-family:system-ui,sans-serif">KBGB</span>
+            <span style="color:#fff;font-size:4px;letter-spacing:0.2em;font-weight:600;font-family:system-ui,sans-serif">RECRUITING</span>
+          </span>KBGB Recruiting · <a href="mailto:kbgb.recruiting@gmail.com" class="hover:text-gray-400 transition">kbgb.recruiting@gmail.com</a>
         </p>
       </div>
     </section>
