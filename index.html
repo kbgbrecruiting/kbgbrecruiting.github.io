@@ -265,47 +265,44 @@ function renderLanding() {
     </nav>
 
     <!-- HERO -->
-    <section class="relative overflow-hidden" style="display:flex;align-items:center;background:radial-gradient(ellipse 120% 100% at 70% 30%, #1a4fc4 0%, #0d2a6e 35%, #050d1f 70%, #000 100%)">
-      <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 50% 60% at 20% 80%,rgba(0,0,0,0.6) 0%,transparent 70%)"></div>
-      <div class="max-w-6xl mx-auto px-6 py-16 md:py-24 w-full relative z-10">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20 items-center">
+    <section class="relative overflow-hidden" style="min-height:90vh;display:flex;align-items:center">
+      <!-- Foto de fondo full-bleed -->
+      <div class="absolute inset-0" style="background-image:url('hero-bg.jpeg');background-size:cover;background-position:center right"></div>
+      <!-- Overlay duotono: oscuro a la izq para legibilidad, azul sutil a la der -->
+      <div class="absolute inset-0" style="background:linear-gradient(105deg, rgba(1,11,30,0.92) 0%, rgba(5,20,60,0.85) 40%, rgba(10,30,80,0.5) 65%, rgba(20,50,120,0.15) 100%)"></div>
 
-          <!-- LEFT: texto -->
-          <div class="text-center md:text-left">
-            <p class="text-xs font-semibold uppercase tracking-widest mb-4" style="color:#2791ef">${t.role}</p>
-            <div class="flex items-center justify-center md:justify-start mb-2">
-              <img src="logo.png" style="height:80px;width:auto">
-            </div>
-            <div class="flex gap-0 my-5 justify-center md:justify-start">
-              <div style="height:3px;width:80px;background:linear-gradient(90deg,#2563eb,#60a5fa)"></div>
-              <div style="height:3px;width:30px;background:linear-gradient(90deg,#60a5fa,transparent)"></div>
-            </div>
-            <p class="text-gray-400 text-base leading-relaxed max-w-lg">${t.bio}</p>
-            <p class="text-gray-500 text-sm italic mt-4">${t.slogan}</p>
-            <div class="flex gap-3 mt-8 flex-wrap justify-center md:justify-start">
-              <a href="#contacto" style="background:#2563eb" class="text-white px-6 py-3 rounded font-semibold text-sm hover:opacity-90 transition">${isEN?'Get in touch →':'Contactanos →'}</a>
-              <a href="https://www.linkedin.com/in/agustin-gonzalez-benegas-65a9a5173" target="_blank" class="text-gray-400 border border-white/20 px-6 py-3 rounded font-semibold text-sm hover:text-white hover:border-white/50 transition">LinkedIn →</a>
-            </div>
+      <div class="max-w-6xl mx-auto px-6 py-20 w-full relative z-10">
+        <div class="max-w-xl">
+          <p class="text-xs font-semibold uppercase tracking-widest mb-5" style="color:#2791ef">${t.role}</p>
+          <div class="mb-4">
+            <img src="logo.png" style="height:72px;width:auto">
           </div>
+          <div class="flex gap-0 mb-7">
+            <div style="height:2px;width:60px;background:linear-gradient(90deg,#2791ef,#60c0ff)"></div>
+            <div style="height:2px;width:25px;background:linear-gradient(90deg,#60c0ff,transparent)"></div>
+          </div>
+          <p class="text-gray-300 text-base leading-relaxed mb-2">${t.bio}</p>
+          <p class="text-gray-500 text-sm italic mb-8">${t.slogan}</p>
 
-          <!-- RIGHT: diferenciales con íconos -->
-          <div class="grid grid-cols-1 gap-3">
+          <!-- Diferenciales en fila horizontal -->
+          <div class="flex flex-wrap gap-x-6 gap-y-3 mb-10">
             ${[
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>`, label: isEN?'Global Reach':'Alcance Global', desc: isEN?'Access to talent across Latin America, US and Europe':'Acceso a talento en Latam, EEUU y Europa' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`, label: isEN?'Senior Recruiters':'Recruiters Senior', desc: isEN?'10+ years placing high-impact talent':'10+ años colocando talento de alto impacto' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`, label: isEN?'Faster Hiring':'Contratación Ágil', desc: isEN?'Faster time-to-hire than traditional agencies':'Más rápido que las agencias tradicionales' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>`, label: isEN?'Personalized Approach':'Servicio Personalizado', desc: isEN?'We treat every search as our own':'Tratamos cada búsqueda como propia' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>`, label: isEN?'Lower Fees':'Honorarios Más Bajos', desc: isEN?'Most competitive rates on the market':'Las tarifas más competitivas del mercado' },
+              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>`, label: isEN?'Global Reach':'Alcance Global' },
+              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`, label: isEN?'Senior Recruiters':'Recruiters Senior' },
+              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`, label: isEN?'Faster Hiring':'Contratación Ágil' },
+              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>`, label: isEN?'Personalized':'Personalizado' },
+              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>`, label: isEN?'Lower Fees':'Honorarios Bajos' },
             ].map(d=>`
-            <div style="border:1px solid rgba(39,145,239,0.2);border-radius:8px;background:rgba(39,145,239,0.05)" class="flex items-center gap-4 px-5 py-4">
-              <div style="background:rgba(39,145,239,0.15);border-radius:8px;padding:10px;color:#2791ef;flex-shrink:0">${d.icon}</div>
-              <div>
-                <p class="text-white text-sm font-bold tracking-wide">${d.label}</p>
-                <p class="text-gray-500 text-xs mt-0.5 leading-relaxed">${d.desc}</p>
-              </div>
+            <div class="flex items-center gap-1.5" style="color:#2791ef">
+              ${d.icon}
+              <span style="color:#cbd5e1;font-size:11px;font-weight:600;letter-spacing:0.04em">${d.label}</span>
             </div>`).join('')}
           </div>
 
+          <div class="flex gap-3 flex-wrap">
+            <a href="#contacto" style="background:#2563eb" class="text-white px-6 py-3 rounded font-semibold text-sm hover:opacity-90 transition">${isEN?'Get in touch →':'Contactanos →'}</a>
+            <a href="https://www.linkedin.com/in/agustin-gonzalez-benegas-65a9a5173" target="_blank" class="text-gray-400 border border-white/20 px-6 py-3 rounded font-semibold text-sm hover:text-white hover:border-white/50 transition">LinkedIn →</a>
+          </div>
         </div>
       </div>
     </section>
