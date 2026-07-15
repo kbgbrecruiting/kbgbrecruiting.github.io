@@ -265,8 +265,8 @@ function renderLanding() {
     </nav>
 
     <!-- HERO -->
-    <section class="relative overflow-hidden" style="background:#000;display:flex;align-items:center">
-      <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 80% 70% at 60% 50%,rgba(39,145,239,0.13) 0%,transparent 70%)"></div>
+    <section class="relative overflow-hidden" style="display:flex;align-items:center;background:radial-gradient(ellipse 120% 100% at 70% 30%, #1a4fc4 0%, #0d2a6e 35%, #050d1f 70%, #000 100%)">
+      <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 50% 60% at 20% 80%,rgba(0,0,0,0.6) 0%,transparent 70%)"></div>
       <div class="max-w-6xl mx-auto px-6 py-16 md:py-24 w-full relative z-10">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20 items-center">
 
@@ -306,36 +306,6 @@ function renderLanding() {
             </div>`).join('')}
           </div>
 
-        </div>
-      </div>
-    </section>
-
-    <!-- HOW WE DO IT -->
-    <section style="background:#000;border-top:1px solid rgba(255,255,255,0.06)" class="px-6 py-20 text-center">
-      <p class="text-xs font-bold text-gray-500 uppercase tracking-[0.3em] mb-6">${isEN ? 'H O W &nbsp; W E &nbsp; D O &nbsp; I T' : 'C O M O &nbsp; L O &nbsp; H A C E M O S'}</p>
-      <div class="flex justify-center mb-8">
-        <div style="height:2px;width:120px;background:linear-gradient(90deg,#011b3e,#2791ef)"></div>
-      </div>
-      <p class="text-white text-xl md:text-2xl font-black max-w-2xl mx-auto leading-relaxed tracking-wide">
-        ${isEN
-          ? '<span style="color:#2791ef">FAST, EFFECTIVE, RISK-FREE</span>, and at one of the <span style="color:#2791ef">MOST COMPETITIVE RATES</span> on the market'
-          : '<span style="color:#2791ef">RÁPIDO, EFECTIVO, SIN RIESGO</span>, y a uno de los <span style="color:#2791ef">COSTOS MÁS BAJOS</span> del mercado'}
-      </p>
-    </section>
-
-    <!-- OUR DIFFERENTIALS — grid 2x2 compacto sobre negro -->
-    <section style="background:#000;border-top:1px solid rgba(255,255,255,0.06)" class="px-6 py-16">
-      <div class="max-w-4xl mx-auto">
-        <p class="text-xs font-bold text-gray-500 uppercase tracking-[0.3em] mb-3 text-center">${isEN?'OUR DIFFERENTIALS':'NUESTROS DIFERENCIALES'}</p>
-        <div class="flex justify-center mb-10">
-          <div style="height:2px;width:80px;background:linear-gradient(90deg,#2563eb,#60a5fa)"></div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          ${t.diff.map(d=>`
-          <div style="border:1px solid rgba(37,99,235,0.3);background:rgba(37,99,235,0.04)" class="rounded p-6 flex flex-col gap-3">
-            <div style="background:#2563eb;display:inline-block" class="text-white text-xs font-black px-5 py-2 rounded tracking-widest uppercase self-start">${d.tag}</div>
-            <p class="text-gray-400 text-sm leading-relaxed">${d.body}</p>
-          </div>`).join('')}
         </div>
       </div>
     </section>
