@@ -15,6 +15,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
   * { font-family: 'Inter', sans-serif; }
   .drag-over { outline: 2px dashed #6366f1; background: #eef2ff; }
@@ -298,15 +299,15 @@ function renderLanding() {
           <!-- RIGHT: diferenciales con íconos -->
           <div class="grid grid-cols-1 gap-3" style="background:rgba(0,0,0,0.6);border-radius:12px;padding:16px">
             ${[
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`, label: isEN?'100% Risk-Free':'100% a Resultado', desc: isEN?'You only pay when you hire. Zero upfront fees, ever.':'Solo pagás si contratás. Sin costos iniciales, nunca.' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>`, label: isEN?'No Exclusivity':'Sin Exclusividad', desc: isEN?'Work with us and other agencies at the same time. Multiple searches in parallel.':'Trabajá con nosotros y otras agencias a la vez. Varias búsquedas en simultáneo.' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><path d="M12 2c0 0-6 5-6 12h12c0-7-6-12-6-12z" stroke-linejoin="round"/><path d="M9 14v4l3 2 3-2v-4"/><circle cx="12" cy="10" r="1.5" fill="currentColor" stroke="none"/></svg>`, label: isEN?'Faster Hiring':'Contratación Ágil', desc: isEN?'First candidates in 2–4 business days. Faster than any traditional agency.':'Primeros candidatos en 2 a 4 días hábiles. Más rápido que cualquier agencia tradicional.' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><path d="M18 11V6a2 2 0 00-2-2 2 2 0 00-2 2M14 10V4a2 2 0 00-2-2 2 2 0 00-2 2v2M10 10.5V6a2 2 0 00-2-2 2 2 0 00-2 2v8a6 6 0 006 6h2.5a4.5 4.5 0 004.5-4.5v-2.5a2 2 0 00-2-2 2 2 0 00-2 2"/></svg>`, label: isEN?'Personalized Approach':'Servicio Personalizado', desc: isEN?'Every search is led by a senior recruiter. More personalized. Better results.':'Cada búsqueda la lleva un recruiter senior. Más personalizado. Mejores resultados.' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>`, label: isEN?'Lower Fees':'Honorarios Más Bajos', desc: isEN?'Significantly below traditional agency rates — without sacrificing quality.':'Muy por debajo de las agencias tradicionales, sin sacrificar calidad.' },
-              { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>`, label: isEN?'Global Reach':'Alcance Global', desc: isEN?'We place talent across Latin America, US, South Africa and worldwide.':'Colocamos talento en Latinoamérica, EEUU, Sudáfrica y todo el mundo.' },
+              { icon: 'fa-shield-halved',    label: isEN?'100% Risk-Free':'100% a Resultado',      desc: isEN?'You only pay when you hire. Zero upfront fees, ever.':'Solo pagás si contratás. Sin costos iniciales, nunca.' },
+              { icon: 'fa-lock-open',        label: isEN?'No Exclusivity':'Sin Exclusividad',       desc: isEN?'Work with us and other agencies at the same time. Multiple searches in parallel.':'Trabajá con nosotros y otras agencias a la vez. Varias búsquedas en simultáneo.' },
+              { icon: 'fa-rocket',           label: isEN?'Faster Hiring':'Contratación Ágil',       desc: isEN?'First candidates in 2–4 business days. Faster than any traditional agency.':'Primeros candidatos en 2 a 4 días hábiles. Más rápido que cualquier agencia tradicional.' },
+              { icon: 'fa-handshake',        label: isEN?'Personalized Approach':'Servicio Personalizado', desc: isEN?'Every search is led by a senior recruiter. More personalized. Better results.':'Cada búsqueda la lleva un recruiter senior. Más personalizado. Mejores resultados.' },
+              { icon: 'fa-dollar-sign',      label: isEN?'Lower Fees':'Honorarios Más Bajos',       desc: isEN?'Significantly below traditional agency rates — without sacrificing quality.':'Muy por debajo de las agencias tradicionales, sin sacrificar calidad.' },
+              { icon: 'fa-globe',            label: isEN?'Global Reach':'Alcance Global',            desc: isEN?'We place talent across Latin America, US, South Africa and worldwide.':'Colocamos talento en Latinoamérica, EEUU, Sudáfrica y todo el mundo.' },
             ].map(d=>`
             <div style="border:1px solid rgba(39,145,239,0.2);border-radius:8px;background:rgba(39,145,239,0.05)" class="flex items-center gap-4 px-5 py-4">
-              <div style="background:rgba(39,145,239,0.15);border-radius:8px;padding:10px;color:#2791ef;flex-shrink:0">${d.icon}</div>
+              <div style="background:rgba(39,145,239,0.15);border-radius:8px;padding:10px;color:#2791ef;flex-shrink:0;width:42px;height:42px;display:flex;align-items:center;justify-content:center"><i class="fa-solid ${d.icon}" style="font-size:18px"></i></div>
               <div>
                 <p class="text-white text-sm font-bold tracking-wide">${d.label}</p>
                 <p class="text-gray-500 text-xs mt-0.5 leading-relaxed">${d.desc}</p>
