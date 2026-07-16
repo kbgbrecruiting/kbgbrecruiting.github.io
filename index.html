@@ -3877,17 +3877,17 @@ async function initApply(param) {
 }
 
 function renderApply() {
-  const dark = 'background:#000;font-family:Inter,system-ui,sans-serif';
+  const dark = 'background:radial-gradient(ellipse at 70% 30%,#0a3d91 0%,#062559 40%,#04122f 75%,#010a1f 100%);font-family:Inter,system-ui,sans-serif';
   if (App._applyState==='loading') return `
   <div class="min-h-screen flex items-center justify-center" style="${dark}">
-    <div class="w-8 h-8 border-4 rounded-full animate-spin" style="border-color:rgba(255,255,255,0.2);border-top-color:#2791ef"></div>
+    <div class="w-8 h-8 border-4 rounded-full animate-spin" style="border-color:rgba(255,255,255,0.2);border-top-color:#4a9eff"></div>
   </div>`;
   if (App._applyState==='error') return `
   <div class="min-h-screen flex items-center justify-center px-6" style="${dark}">
     <div class="text-center max-w-sm">
       <p class="text-4xl mb-4">🔍</p>
       <p class="text-lg font-bold text-white mb-2">Position not found</p>
-      <p class="text-sm text-gray-500">${App._applyError||'This position may no longer be active or the link is incorrect.'}</p>
+      <p class="text-sm " style="color:#a8c5e8">${App._applyError||'This position may no longer be active or the link is incorrect.'}</p>
     </div>
   </div>`;
   if (App._applyState==='sent') return `
@@ -3895,7 +3895,7 @@ function renderApply() {
     <div class="text-center max-w-sm">
       <p class="text-5xl mb-5">✅</p>
       <p class="text-2xl font-black text-white mb-2">Application received!</p>
-      <p class="text-gray-400 text-sm mb-8">We'll review your profile and be in touch soon.</p>
+      <p class="text-sm mb-8" style="color:#a8c5e8">We'll review your profile and be in touch soon.</p>
       <div class="flex items-center justify-center">
         <img src="logo.png" style="height:32px;width:auto;opacity:0.7">
       </div>
@@ -3911,9 +3911,9 @@ function renderApply() {
     ? `${b.moneda||''} ${Number(b.banda_salarial_min).toLocaleString()}${b.banda_salarial_max ? ' – ' + Number(b.banda_salarial_max).toLocaleString() : '+'}`
     : '';
 
-  const inp = 'w-full rounded-lg px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 transition';
-  const inpStyle = 'background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12)';
-  const lbl = 'block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide';
+  const inp = 'w-full rounded-lg px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition';
+  const inpStyle = 'background:rgba(6,37,89,0.6);border:1px solid rgba(74,158,255,0.25)';
+  const lbl = 'block text-xs font-semibold mb-2 uppercase tracking-wide" style="color:#a8c5e8';
 
   // Formatear JD: soporta **negrita**, saltos de línea y párrafos
   const jdHtml = jdTexto
@@ -3921,7 +3921,7 @@ function renderApply() {
         .replace(/\r\n/g,'\n')
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/\*\*(.+?)\*\*/g,'<strong style="color:#fff;font-weight:700">$1</strong>')
-        .replace(/\n{2,}/g,'</p><p class="text-gray-400 text-sm leading-relaxed mb-4">')
+        .replace(/\n{2,}/g,'</p><p class="text-sm leading-relaxed" style="color:#a8c5e8 mb-4">')
         .replace(/\n/g,'<br>')
     : '';
 
@@ -3929,16 +3929,16 @@ function renderApply() {
   <div class="min-h-screen flex flex-col" style="${dark}">
 
     <!-- NAV -->
-    <nav style="background:#000;border-bottom:1px solid rgba(255,255,255,0.08)" class="px-6 py-4 flex items-center gap-3 sticky top-0 z-50">
+    <nav style="background:rgba(4,18,47,0.85);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.1)" class="px-6 py-4 flex items-center gap-3 sticky top-0 z-50">
       <img src="logo.png" style="height:36px;width:auto">
     </nav>
 
     <!-- HERO -->
     <section style="border-bottom:1px solid rgba(255,255,255,0.08)" class="px-6 py-14">
       <div class="max-w-2xl mx-auto">
-        <p class="text-xs font-bold uppercase tracking-widest mb-4" style="color:#2791ef">Open position</p>
+        <p class="text-xs font-bold uppercase tracking-widest mb-4" style="color:#4a9eff">Open position</p>
         <h1 class="text-3xl md:text-4xl font-black text-white mb-3 leading-tight">${b.puesto||'Position'}</h1>
-        ${b.cliente?`<p class="text-gray-400 font-medium text-lg mb-5">${b.cliente}</p>`:''}
+        ${b.cliente?`<p class="font-medium" style="color:#a8c5e8 text-lg mb-5">${b.cliente}</p>`:''}
 
         <!-- Tags: seniority y modalidad solamente, sin banda salarial -->
         <div class="flex flex-wrap gap-2 mb-8">
@@ -3948,11 +3948,11 @@ function renderApply() {
 
         ${jdHtml?`
         <div style="border-top:1px solid rgba(255,255,255,0.08)" class="pt-8">
-          <p class="text-xs font-bold uppercase tracking-widest mb-5 text-gray-500">Job Description</p>
+          <p class="text-xs font-bold uppercase tracking-widest mb-5 " style="color:#a8c5e8">Job Description</p>
           <div id="jdPreview" style="overflow:hidden;max-height:280px;mask-image:linear-gradient(to bottom,black 50%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,black 50%,transparent 100%)">
-            <p class="text-gray-400 text-sm leading-relaxed">${jdHtml}</p>
+            <p class="text-sm leading-relaxed" style="color:#a8c5e8">${jdHtml}</p>
           </div>
-          <button onclick="var el=document.getElementById('jdPreview');el.style.maxHeight='none';el.style.maskImage='none';el.style.webkitMaskImage='none';this.style.display='none'" class="text-xs font-semibold mt-4 block" style="color:#2791ef">
+          <button onclick="var el=document.getElementById('jdPreview');el.style.maxHeight='none';el.style.maskImage='none';el.style.webkitMaskImage='none';this.style.display='none'" class="text-xs font-semibold mt-4 block" style="color:#4a9eff">
             View full description ↓
           </button>
         </div>`:''}
@@ -3963,53 +3963,53 @@ function renderApply() {
     <!-- FORMULARIO -->
     <section class="px-6 py-12">
       <div class="max-w-2xl mx-auto">
-        <p class="text-xs font-bold uppercase tracking-widest mb-2" style="color:#2791ef">Apply</p>
+        <p class="text-xs font-bold uppercase tracking-widest mb-2" style="color:#4a9eff">Apply</p>
         <h2 class="text-2xl font-black text-white mb-1">Apply for this role</h2>
-        <p class="text-gray-500 text-sm mb-8">Submit your CV and we'll reach out if your profile is a match.</p>
+        <p class="text-sm mb-8" style="color:#a8c5e8">Submit your CV and we'll reach out if your profile is a match.</p>
 
         <form id="applyForm" class="space-y-6" onsubmit="submitPostulacion(event,'${App._applyBid}')">
 
           <!-- Nombre y email -->
           <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>
-              <label class="${lbl}">Your name <span style="color:#2791ef">*</span></label>
+              <label class="${lbl}">Your name <span style="color:#4a9eff">*</span></label>
               <input name="nombre" required placeholder="John Smith" class="${inp}" style="${inpStyle}">
             </div>
             <div>
-              <label class="${lbl}">Your email <span style="color:#2791ef">*</span></label>
+              <label class="${lbl}">Your email <span style="color:#4a9eff">*</span></label>
               <input name="email" type="email" required placeholder="john@email.com" class="${inp}" style="${inpStyle}">
             </div>
           </div>
 
           <!-- CV upload -->
           <div>
-            <label class="${lbl}">Your CV <span style="color:#2791ef">*</span></label>
+            <label class="${lbl}">Your CV <span style="color:#4a9eff">*</span></label>
             <div style="border:2px dashed rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color .2s"
               class="p-8 text-center hover:border-amber-500"
               onclick="document.getElementById('applyCvFile').click()"
-              ondragover="event.preventDefault();this.style.borderColor='#2791ef'"
+              ondragover="event.preventDefault();this.style.borderColor='#4a9eff'"
               ondragleave="this.style.borderColor='rgba(255,255,255,0.15)'"
               ondrop="event.preventDefault();this.style.borderColor='rgba(255,255,255,0.15)';document.getElementById('applyCvFile').files=event.dataTransfer.files;document.getElementById('applyFileName').textContent=event.dataTransfer.files[0]?.name||''">
               <p class="text-3xl mb-3">📄</p>
               <p class="text-white font-semibold text-sm">Drag your CV or click to upload</p>
-              <p class="text-gray-600 text-xs mt-1">PDF · Max 10MB</p>
+              <p class="text-xs mt-1" style="color:#a8c5e8">PDF · Max 10MB</p>
               <input type="file" id="applyCvFile" accept=".pdf" required class="hidden"
                 onchange="document.getElementById('applyFileName').textContent=this.files[0]?.name||''">
             </div>
-            <p id="applyFileName" class="text-xs mt-2 text-center font-semibold" style="color:#2791ef"></p>
-            <p id="applyCvStatus" class="text-xs mt-1 text-center text-gray-400"></p>
+            <p id="applyFileName" class="text-xs mt-2 text-center font-semibold" style="color:#4a9eff"></p>
+            <p id="applyCvStatus" class="text-xs mt-1 text-center " style="color:#a8c5e8"></p>
           </div>
 
           <!-- Salary expectation -->
           <div>
-            <label class="${lbl}">Salary expectation <span style="color:#2791ef">*</span></label>
+            <label class="${lbl}">Salary expectation <span style="color:#4a9eff">*</span></label>
             <input name="expectativa_salarial" required placeholder="${b.moneda==='USD'?'Ej: USD 3,500/mes':'Ej: $3.500.000 brutos/mes'}" class="${inp}" style="${inpStyle}">
           </div>
 
           ${preguntas.length?`
           <!-- Preguntas filtro (cargadas por el recruiter en el briefing) -->
           <div style="border-top:1px solid rgba(255,255,255,0.08)" class="pt-6 space-y-5">
-            <p class="text-xs font-bold uppercase tracking-widest text-gray-500">Quick questions</p>
+            <p class="text-xs font-bold uppercase tracking-widest " style="color:#a8c5e8">Quick questions</p>
             ${preguntas.map((p,i)=>`
             <div>
               <label class="${lbl}">${p}</label>
@@ -4019,7 +4019,7 @@ function renderApply() {
 
           <button type="submit" id="applySubmitBtn"
             class="w-full py-4 rounded-xl font-black text-sm tracking-wide transition text-black hover:opacity-90"
-            style="background:#2791ef">
+            style="background:#4a9eff">
             Submit application →
           </button>
         </form>
