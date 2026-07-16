@@ -3175,7 +3175,9 @@ body{padding-top:108px}
 <div class="header">
   <div class="header-top">
     <div class="logo-area">
-      <img src="https://kbgbrecruiting.github.io/favicon.png" style="height:40px;width:auto">
+      <div style="background:#0d3560;padding:8px 14px;border-radius:6px;display:inline-block">
+        <img src="https://kbgbrecruiting.github.io/logo.png" style="height:32px;width:auto">
+      </div>
     </div>
     <div class="header-date" contenteditable="true">${fecha}</div>
   </div>
@@ -3201,11 +3203,6 @@ ${(()=>{
 })()}
 
 <div class="section">
-  <div class="sec-label" contenteditable="true">Interview Availability</div>
-  <div class="sec-body" contenteditable="true">${c.disponibilidad||'To be confirmed'}</div>
-</div>
-
-<div class="section">
   <div class="sec-label" contenteditable="true">Contact</div>
   <div class="contact-grid">
     ${c.contacto_email?`<div class="contact-item"><span class="contact-key" contenteditable="true">Email</span><span class="contact-val" contenteditable="true">${c.contacto_email}</span></div>`:''}
@@ -3218,8 +3215,9 @@ ${(()=>{
 
 <div class="footer">
   <div class="footer-left">
-    <img src="https://kbgbrecruiting.github.io/favicon.png" style="height:28px;width:auto">
-    <span class="footer-brand">KBGB Recruiting</span>
+    <div style="background:#0d3560;padding:4px 8px;border-radius:4px;display:inline-block">
+      <img src="https://kbgbrecruiting.github.io/logo.png" style="height:20px;width:auto">
+    </div>
   </div>
   <span class="footer-ref" contenteditable="true">${b.puesto||''} · ${b.cliente||''}</span>
 </div>
