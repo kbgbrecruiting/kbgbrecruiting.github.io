@@ -3949,8 +3949,9 @@ function renderApply() {
         ${jdHtml?`
         <div style="border-top:1px solid rgba(255,255,255,0.08)" class="pt-8">
           <p class="text-xs font-bold uppercase tracking-widest mb-5 " style="color:#a8c5e8">Job Description</p>
-          <div id="jdPreview" style="overflow:hidden;max-height:280px;mask-image:linear-gradient(to bottom,black 50%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,black 50%,transparent 100%)">
-            <p class="text-sm leading-relaxed" style="color:#a8c5e8">${jdHtml}</p>
+          <div id="jdPreview" style="overflow:hidden;max-height:280px;mask-image:linear-gradient(to bottom,black 50%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,black 50%,transparent 100%);color:#a8c5e8">
+            <style>#jdPreview *:not(strong){color:#a8c5e8 !important}</style>
+            <p class="text-sm leading-relaxed">${jdHtml}</p>
           </div>
           <button onclick="var el=document.getElementById('jdPreview');el.style.maxHeight='none';el.style.maskImage='none';el.style.webkitMaskImage='none';this.style.display='none'" class="text-xs font-semibold mt-4 block" style="color:#4a9eff">
             View full description ↓
