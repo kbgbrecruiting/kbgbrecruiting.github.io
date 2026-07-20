@@ -420,8 +420,8 @@ function renderLanding() {
             { file:'logos/well_copy_logo.jpeg',     url:'https://www.wellcopy.net',        name:'Wellcopy' },
             { file:'logos/newsan_logo.jpeg',        url:'https://www.newsan.com.ar',       name:'Newsan' },
           ].map(c=>`
-          <a href="${c.url}" target="_blank" rel="noopener" title="${c.name}" style="background:#fff;border-radius:10px;padding:10px 16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;width:130px;height:64px;box-shadow:0 2px 8px rgba(0,0,0,0.3)" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 16px rgba(74,158,255,0.3)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.3)'">
-            <img src="${c.file}" alt="${c.name}" style="max-width:100px;max-height:44px;object-fit:contain">
+          <a href="${c.url}" target="_blank" rel="noopener" title="${c.name}" style="background:rgba(6,37,89,0.6);border:1px solid rgba(74,158,255,0.2);border-radius:10px;padding:10px 16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;width:130px;height:64px" onmouseover="this.style.borderColor='rgba(74,158,255,0.5)';this.style.background='rgba(10,61,145,0.4)'" onmouseout="this.style.borderColor='rgba(74,158,255,0.2)';this.style.background='rgba(6,37,89,0.6)'">
+            <img src="${c.file}" alt="${c.name}" style="max-width:100px;max-height:44px;object-fit:contain;mix-blend-mode:luminosity;filter:brightness(1.1) contrast(1.1)">
           </a>`).join('')}
         </div>
 
@@ -435,8 +435,8 @@ function renderLanding() {
             { file:'logos/growketing_logo.jpeg',              url:'https://www.growketing.com',             name:'Growketing' },
             { file:'logos/assistedlivingmagazine_logo.jpeg',  url:'https://assistedlivingmagazine.com',     name:'Assisted Living' },
           ].map(c=>`
-          <a href="${c.url}" target="_blank" rel="noopener" title="${c.name}" style="background:#fff;border-radius:10px;padding:10px 16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;width:130px;height:64px;box-shadow:0 2px 8px rgba(0,0,0,0.3)" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 16px rgba(74,158,255,0.3)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.3)'">
-            <img src="${c.file}" alt="${c.name}" style="max-width:100px;max-height:44px;object-fit:contain">
+          <a href="${c.url}" target="_blank" rel="noopener" title="${c.name}" style="background:rgba(6,37,89,0.6);border:1px solid rgba(74,158,255,0.2);border-radius:10px;padding:10px 16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;width:130px;height:64px" onmouseover="this.style.borderColor='rgba(74,158,255,0.5)';this.style.background='rgba(10,61,145,0.4)'" onmouseout="this.style.borderColor='rgba(74,158,255,0.2)';this.style.background='rgba(6,37,89,0.6)'">
+            <img src="${c.file}" alt="${c.name}" style="max-width:100px;max-height:44px;object-fit:contain;mix-blend-mode:luminosity;filter:brightness(1.1) contrast(1.1)">
           </a>`).join('')}
         </div>
       </div>
