@@ -408,20 +408,32 @@ function renderLanding() {
         <!-- Growth -->
         <p class="text-xs font-semibold uppercase tracking-widest mb-4 text-center" style="color:#6b9fd4">${isEN?'Growth & eCommerce':'Growth & eCommerce'}</p>
         <div class="flex flex-wrap justify-center items-center gap-6 mb-10">
-          ${['readyset.co','wearelinear.com','titanagency.co.uk','konsortsocial.com','inbeat.agency','wellcopy.net','newsan.com.ar'].map(domain=>`
-          <a href="https://${domain}" target="_blank" rel="noopener" title="${domain}" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:14px 20px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;width:130px;height:64px" onmouseover="this.style.background='rgba(74,158,255,0.12)';this.style.borderColor='rgba(74,158,255,0.4)'" onmouseout="this.style.background='rgba(255,255,255,0.07)';this.style.borderColor='rgba(255,255,255,0.12)'">
-            <img src="https://logo.clearbit.com/${domain}" alt="${domain}" style="max-width:90px;max-height:36px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.75" onerror="this.style.display='none';this.parentNode.querySelector('span').style.display='block'">
-            <span style="display:none;color:#a8c5e8;font-size:11px;font-weight:600;text-align:center">${domain.replace('www.','')}</span>
+          ${[
+            { file:'logos/ready_set_logo.jpeg',    url:'https://www.readyset.co',         name:'Ready Set' },
+            { file:'logos/linear_logo.jpeg',        url:'https://www.wearelinear.com',     name:'Linear' },
+            { file:'logos/titan_agency_logo.jpeg',  url:'https://titanagency.co.uk',       name:'Titan Agency' },
+            { file:'logos/Konsort_logo.jpeg',       url:'https://www.konsortsocial.com',   name:'Konsort Social' },
+            { file:'logos/inbeat_agency_logo.jpeg', url:'https://inbeat.agency',           name:'Inbeat' },
+            { file:'logos/well_copy_logo.jpeg',     url:'https://www.wellcopy.net',        name:'Wellcopy' },
+            { file:'logos/newsan_logo.jpeg',        url:'https://www.newsan.com.ar',       name:'Newsan' },
+          ].map(c=>`
+          <a href="${c.url}" target="_blank" rel="noopener" title="${c.name}" style="background:#fff;border-radius:10px;padding:10px 16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;width:130px;height:64px;box-shadow:0 2px 8px rgba(0,0,0,0.3)" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 16px rgba(74,158,255,0.3)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.3)'">
+            <img src="${c.file}" alt="${c.name}" style="max-width:100px;max-height:44px;object-fit:contain">
           </a>`).join('')}
         </div>
 
         <!-- Tech/AI -->
         <p class="text-xs font-semibold uppercase tracking-widest mb-4 text-center" style="color:#6b9fd4">${isEN?'Technology & AI':'Technology & AI'}</p>
         <div class="flex flex-wrap justify-center items-center gap-6">
-          ${['airpost.ai','pulpos.com','localytics.com','growketing.com','assistedlivingmagazine.com'].map(domain=>`
-          <a href="https://${domain}" target="_blank" rel="noopener" title="${domain}" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:14px 20px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;width:130px;height:64px" onmouseover="this.style.background='rgba(74,158,255,0.12)';this.style.borderColor='rgba(74,158,255,0.4)'" onmouseout="this.style.background='rgba(255,255,255,0.07)';this.style.borderColor='rgba(255,255,255,0.12)'">
-            <img src="https://logo.clearbit.com/${domain}" alt="${domain}" style="max-width:90px;max-height:36px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.75" onerror="this.style.display='none';this.parentNode.querySelector('span').style.display='block'">
-            <span style="display:none;color:#a8c5e8;font-size:11px;font-weight:600;text-align:center">${domain.replace('www.','')}</span>
+          ${[
+            { file:'logos/airpost_ai_logo.jpeg',              url:'https://www.airpost.ai',                 name:'Airpost' },
+            { file:'logos/pulos_logo.jpeg',                   url:'https://pulpos.com',                     name:'Pulpos' },
+            { file:'logos/localytics_logo.jpeg',              url:'https://localytics.com',                 name:'Localytics' },
+            { file:'logos/growketing_logo.jpeg',              url:'https://www.growketing.com',             name:'Growketing' },
+            { file:'logos/assistedlivingmagazine_logo.jpeg',  url:'https://assistedlivingmagazine.com',     name:'Assisted Living' },
+          ].map(c=>`
+          <a href="${c.url}" target="_blank" rel="noopener" title="${c.name}" style="background:#fff;border-radius:10px;padding:10px 16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;width:130px;height:64px;box-shadow:0 2px 8px rgba(0,0,0,0.3)" onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 4px 16px rgba(74,158,255,0.3)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.3)'">
+            <img src="${c.file}" alt="${c.name}" style="max-width:100px;max-height:44px;object-fit:contain">
           </a>`).join('')}
         </div>
       </div>

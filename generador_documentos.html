@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>KBGB Recruiting — Generador de Propuestas y Contratos</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#011b3e; --navy2:#022b61; --logobg:#0d3560;
+    --blue:#2791ef; --lightblue:#e7faff; --gray:#6b7280;
+  }
+  *{font-family:'Montserrat',sans-serif;}
+  body{background:#f3f4f6;}
+  .divider{height:3px;background:linear-gradient(90deg,#00d4ff,#2791ef,#1e50cc);}
+  .field-label{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--navy2);text-transform:uppercase;}
+  .tab-btn.active{background:var(--navy);color:#fff;}
+  .doc-h1{font-weight:700;color:var(--navy);font-size:18px;margin-top:22px;margin-bottom:8px;}
+  .doc-label{font-weight:700;color:var(--navy2);font-size:11px;letter-spacing:.05em;text-transform:uppercase;}
+  .doc-body{font-size:13.5px;line-height:1.6;color:#1a1a1a;}
+  .ph{color:var(--blue);font-weight:700;font-style:italic;}
+  .sig-block{break-inside:avoid; page-break-inside:avoid;}
+  @page{ size:letter; margin:0.55in; }
+  @media print{
+    html, body{background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    .no-print{display:none !important;}
+    .preview-wrap{box-shadow:none !important; margin:0 !important; width:100% !important; max-width:none !important;}
+    .page{box-shadow:none !important; padding:0 !important; width:100% !important; min-height:0 !important;}
+    .doc-h1{margin-top:14px; margin-bottom:6px; break-after:avoid; page-break-after:avoid;}
+    .doc-body{margin-bottom:8px !important; line-height:1.45;}
+    p{orphans:3; widows:3;}
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="no-print bg-[#011b3e] text-white px-6 py-4 flex items-center justify-between">
+  <div class="flex items-center gap-3">
+    <div class="bg-[#0d3560] px-3 py-2 rounded">
+      <div class="font-black leading-none text-lg">KBGB</div>
+      <div class="text-[9px] tracking-widest text-[#e7faff]">RECRUITING</div>
+    </div>
+    <div class="text-sm text-gray-300">Generador de Propuestas y Contratos</div>
+  </div>
+  <button onclick="window.print()" class="bg-[#2791ef] hover:bg-[#1e78c9] text-white text-sm font-semibold px-4 py-2 rounded">
+    Imprimir / Guardar PDF
+  </button>
+</div>
+
+<div class="no-print max-w-7xl mx-auto flex gap-6 px-6 py-6">
+
+  <!-- SIDEBAR -->
+  <div class="w-80 shrink-0 bg-white rounded-lg shadow p-5 h-fit">
+    <div class="flex gap-2 mb-3">
+      <button id="tabProp" onclick="setDoc('propuesta')" class="tab-btn active flex-1 text-sm font-semibold py-2 rounded border border-[#011b3e]">Propuesta</button>
+      <button id="tabCon" onclick="setDoc('contrato')" class="tab-btn flex-1 text-sm font-semibold py-2 rounded border border-[#011b3e]">Contrato</button>
+    </div>
+    <div class="flex gap-2 mb-5">
+      <button id="langEs" onclick="setLang('es')" class="tab-btn active flex-1 text-xs font-semibold py-1.5 rounded border border-[#011b3e]">Español</button>
+      <button id="langEn" onclick="setLang('en')" class="tab-btn flex-1 text-xs font-semibold py-1.5 rounded border border-[#011b3e]">English</button>
+    </div>
+
+    <div class="space-y-3">
+      <div>
+        <label class="field-label">Cliente / Empresa</label>
+        <input id="cliente" oninput="render()" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="Ej. Acme Inc.">
+      </div>
+      <div>
+        <label class="field-label">Cargo / Posición</label>
+        <input id="cargo" oninput="render()" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="Ej. Growth Marketer">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="field-label">Fee (% del 1er salario mensual)</label>
+          <input id="fee" oninput="render()" type="text" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="Ej. 80">
+        </div>
+        <div>
+          <label class="field-label">Fee mínimo (USD)</label>
+          <input id="feeMinimo" oninput="render()" type="text" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="Ej. 1000">
+        </div>
+      </div>
+      <div>
+        <label class="field-label">Días hábiles de pago (desde firma del candidato)</label>
+        <input id="diasPago" oninput="render()" type="text" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="Ej. 5">
+      </div>
+      <div>
+        <label class="field-label">Fecha</label>
+        <input id="fecha" oninput="render()" type="text" class="w-full border rounded px-2 py-1.5 text-sm mt-1">
+      </div>
+      <div>
+        <label class="field-label">Jurisdicción / Ley aplicable</label>
+        <input id="jurisdiccion" oninput="render()" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="Ej. Argentina">
+        <p class="text-[11px] text-gray-400 mt-1 leading-snug">Qué país/tribunales resuelven un conflicto. Si no estás seguro, usá el país donde está tu empresa, o dejalo vacío.</p>
+      </div>
+
+      <div id="contratoFields" class="space-y-3 pt-2 border-t hidden">
+        <div>
+          <label class="field-label">Datos legales del cliente (opcional)</label>
+          <input id="clienteDetalle" oninput="render()" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="Ej. sociedad constituida en Delaware, domicilio en Miami, FL">
+          <p class="text-[11px] text-gray-400 mt-1 leading-snug">Solo si lo tenés a mano. Si lo dejás vacío, el contrato usa directamente el nombre de la empresa sin ese detalle.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="field-label">Días notif. conocim. previo</label>
+            <input id="diasNotifPrevia" oninput="render()" type="text" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="2">
+          </div>
+          <div>
+            <label class="field-label">Meses vigencia candidato</label>
+            <input id="mesesPropiedad" oninput="render()" type="text" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="12">
+          </div>
+        </div>
+        <div>
+          <label class="field-label">Días de preaviso terminación</label>
+          <input id="diasTerminacion" oninput="render()" type="text" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="7">
+        </div>
+        <div>
+          <label class="field-label">Firma cliente — nombre</label>
+          <input id="firmanteNombre" oninput="render()" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="Nombre y apellido">
+        </div>
+        <div>
+          <label class="field-label">Firma cliente — cargo</label>
+          <input id="firmanteCargo" oninput="render()" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="Ej. CEO">
+        </div>
+      </div>
+
+      <div class="pt-2 border-t">
+        <label class="field-label">Contacto (footer)</label>
+        <input id="email" oninput="render()" class="w-full border rounded px-2 py-1.5 text-sm mt-1" placeholder="email">
+        <input id="telefono" oninput="render()" class="w-full border rounded px-2 py-1.5 text-sm mt-2" placeholder="teléfono">
+      </div>
+    </div>
+
+    <p class="text-[11px] text-gray-400 mt-4 leading-relaxed">
+      Los campos se completan en la vista previa a la derecha. El contrato es un modelo de referencia — revisar con un profesional matriculado antes de firmar.
+    </p>
+  </div>
+
+  <!-- PREVIEW -->
+  <div class="flex-1 preview-wrap">
+    <div class="page bg-white shadow-lg mx-auto" style="width:816px; min-height:1056px; padding:56px 64px;" id="preview"></div>
+  </div>
+</div>
+
+<div class="hidden print:block preview-wrap">
+  <div class="page" style="width:100%; padding:0;" id="previewPrint"></div>
+</div>
+
+<script>
+let currentDoc = 'propuesta';
+let currentLang = 'es';
+
+function setDoc(d){
+  currentDoc = d;
+  document.getElementById('tabProp').classList.toggle('active', d==='propuesta');
+  document.getElementById('tabCon').classList.toggle('active', d==='contrato');
+  document.getElementById('contratoFields').classList.toggle('hidden', d!=='contrato');
+  render();
+}
+
+function setLang(l){
+  currentLang = l;
+  document.getElementById('langEs').classList.toggle('active', l==='es');
+  document.getElementById('langEn').classList.toggle('active', l==='en');
+  render();
+}
+
+function val(id, fallback){
+  const v = document.getElementById(id).value.trim();
+  return v ? v : fallback;
+}
+
+function header(title){
+  const fecha = val('fecha','[FECHA]');
+  return `
+  <div class="flex justify-between items-start">
+    <div class="bg-[#0d3560] px-4 py-3 rounded" style="min-width:130px;">
+      <div class="text-white font-black text-xl leading-none">KBGB</div>
+      <div class="text-[10px] tracking-widest text-[#e7faff] mt-1">RECRUITING</div>
+    </div>
+    <div class="text-right">
+      <div class="font-bold text-[#011b3e] text-lg">${title}</div>
+      <div class="text-sm text-gray-500">${fecha}</div>
+    </div>
+  </div>
+  <div class="divider my-5"></div>`;
+}
+
+function footer(ref){
+  return `
+  <div class="mt-10 pt-3 border-t border-[#011b3e] flex justify-between text-xs text-gray-500">
+    <div><span class="font-bold text-[#011b3e]">KBGB</span> <span class="tracking-widest">RECRUITING</span></div>
+    <div>${ref}</div>
+  </div>`;
+}
+
+function renderPropuesta(){
+  const cliente = val('cliente','[NOMBRE DEL CLIENTE / EMPRESA]');
+  const cargo = val('cargo','[CARGO]');
+  const fee = val('fee','[%FEE]');
+  const feeMinimo = val('feeMinimo','[MONTO MÍNIMO]');
+  const dias = val('diasPago','[X]');
+  const email = val('email','[email]');
+  const tel = val('telefono','[teléfono]');
+
+  return header('Propuesta de Servicio de Recruiting') + `
+    <p class="doc-body"><b>Para:</b> ${cliente}</p>
+    <p class="doc-body mb-4"><b>De:</b> Agustín González Benegas — KBGB Recruiting</p>
+
+    <div class="doc-h1">Quiénes somos</div>
+    <p class="doc-body">KBGB Recruiting es una consultora boutique de recruiting especializada en dos verticales: Growth &amp; Performance Marketing (marcas eCommerce/DTC y agencias) y Tech &amp; AI (empresas SaaS y de inteligencia artificial). Más de 10 años de experiencia en procesos de selección end-to-end para startups y empresas consolidadas a nivel global.</p>
+
+    <div class="doc-h1">Modelo de servicio</div>
+    <ul class="doc-body list-disc pl-5 space-y-1">
+      <li><b>Risk-free:</b> no se cobra honorario alguno si no se concreta la contratación.</li>
+      <li><b>Non-exclusive:</b> pueden abrir la búsqueda en paralelo con otros proveedores o su equipo interno.</li>
+      <li><b>Guaranteed:</b> si el candidato se desvincula dentro de los primeros 60 días, lo reemplazamos sin costo adicional.</li>
+    </ul>
+
+    <div class="doc-h1">Rol a cubrir</div>
+    <p class="doc-body">${cargo}</p>
+
+    <div class="doc-h1">Honorarios</div>
+    <p class="doc-body">Fee: <span class="ph">${fee}%</span> del primer salario mensual del candidato contratado, con un honorario mínimo de US$<span class="ph">${feeMinimo}</span>.</p>
+    <p class="doc-body">Forma de pago: 100% al momento en que el candidato firma su vínculo laboral con ustedes, dentro de los <span class="ph">${dias}</span> días hábiles.</p>
+
+    <div class="doc-h1">Próximos pasos</div>
+    <ol class="doc-body list-decimal pl-5 space-y-1">
+      <li>Confirmar el brief del rol (JD, banda salarial, criterios de filtro).</li>
+      <li>Firma del contrato de servicio.</li>
+      <li>Kickoff de la búsqueda.</li>
+    </ol>
+
+    <p class="doc-body mt-4">Contacto: Agustín González Benegas · ${email} · ${tel} · kbgbrecruiting.github.io</p>
+  ` + footer('Propuesta comercial');
+}
+
+function renderContrato(){
+  const cliente = val('cliente','[NOMBRE DEL CLIENTE]');
+  const fecha = val('fecha','[FECHA DE VIGENCIA]');
+  const clienteDetalle = document.getElementById('clienteDetalle').value.trim();
+  const fee = val('fee','[%FEE]');
+  const feeMinimo = val('feeMinimo','[MONTO MÍNIMO]');
+  const diasPago = val('diasPago','[X]');
+  const diasNotifPrevia = val('diasNotifPrevia','2');
+  const mesesPropiedad = val('mesesPropiedad','12');
+  const diasTerminacion = val('diasTerminacion','7');
+  const jurisdiccion = val('jurisdiccion','el Estado de Florida, Estados Unidos');
+  const firmNombre = val('firmanteNombre','[Nombre]');
+  const firmCargo = val('firmanteCargo','[Cargo]');
+  const clienteLine = clienteDetalle
+    ? `KBGB Recruiting; y <span class="ph">${cliente}</span>, ${clienteDetalle} (el "Cliente").`
+    : `KBGB Recruiting; y <span class="ph">${cliente}</span> (el "Cliente").`;
+
+  return header('Contrato de Servicios de Reclutamiento') + `
+    <div class="no-print bg-gray-100 text-gray-500 text-xs italic p-3 rounded mb-4">
+      Recordatorio interno (no se imprime): este es un modelo de referencia. Revisalo con un profesional matriculado antes de usarlo con un cliente real.
+    </div>
+
+    <p class="doc-body">Este Contrato de Servicios de Reclutamiento (el "Contrato") se celebra con fecha <span class="ph">${fecha}</span> ("Fecha de Vigencia") entre:</p>
+    <p class="doc-body">${clienteLine}</p>
+    <p class="doc-body">La Compañía y el Cliente son cada uno una "Parte" y en conjunto las "Partes". A los efectos de este Contrato, "Afiliada" significa cualquier entidad que controle, sea controlada por, o esté bajo control común con una Parte. En consideración de los compromisos mutuos aquí establecidos, las Partes acuerdan lo siguiente:</p>
+
+    <div class="doc-h1">1. Contratación de Servicios</div>
+    <p class="doc-body"><b>1.1 Alcance.</b> El Cliente contrata a la Compañía, de forma no exclusiva y totalmente contingente, para identificar, reclutar, evaluar y presentar candidatos ("Candidatos") para el/los puesto(s) descritos por el Cliente (cada uno, una "Búsqueda"). La Compañía acepta la contratación y realizará esfuerzos comercialmente razonables para llevar a cabo cada Búsqueda a través de su equipo interno de reclutamiento.</p>
+    <p class="doc-body"><b>1.2 Sin honorarios anticipados.</b> Las Partes acuerdan que no hay honorarios anticipados. La contratación es enteramente basada en resultados: el Cliente solo pagará a la Compañía si contrata a un Candidato presentado por ella.</p>
+    <p class="doc-body"><b>1.3 Job Description requerida.</b> Antes de iniciar cualquier Búsqueda, el Cliente deberá proporcionar una Job Description por escrito con responsabilidades, calificaciones requeridas, rango de compensación, línea de reporte, expectativas del puesto y demás detalles relevantes. La obligación de la Compañía comienza únicamente al recibir la Job Description.</p>
+    <p class="doc-body"><b>1.4 Evaluación y presentación de candidatos.</b> La Compañía reclutará Candidatos que coincidan con los requisitos del Cliente utilizando su equipo interno, los entrevistará y evaluará, y presentará al Cliente los que considere adecuados. Las entrevistas finales, la debida diligencia, la verificación de referencias, los controles de antecedentes y las decisiones de contratación son responsabilidad exclusiva del Cliente.</p>
+
+    <div class="doc-h1">2. Honorario de Colocación</div>
+    <p class="doc-body"><b>2.1 Monto del honorario.</b> Por cada Candidato contratado por el Cliente (o cualquier afiliada del Cliente) como resultado de la presentación de la Compañía, el Cliente pagará un honorario de colocación equivalente al <span class="ph">${fee}%</span> del primer salario mensual del Candidato. Existirá un honorario mínimo de US$<span class="ph">${feeMinimo}</span> por contratación. Si el puesto es de tipo performance o basado en comisiones, se utilizará el OTE (on target earnings) presentado al candidato durante el proceso como base de la compensación.</p>
+    <p class="doc-body"><b>2.2 Momento de pago.</b> El honorario se torna exigible inmediatamente al firmar el Candidato un contrato de trabajo u otro compromiso vinculante con el Cliente ("Fecha de Firma"). El pago total deberá remitirse dentro de los <span class="ph">${diasPago}</span> días hábiles posteriores a la Fecha de Firma.</p>
+    <p class="doc-body"><b>2.3 Sin contratación, sin honorario.</b> Si el Cliente no contrata a ningún Candidato presentado por la Compañía, no se adeudará honorario alguno.</p>
+    <p class="doc-body"><b>2.4 Forma de pago.</b> El pago se realizará por transferencia bancaria o ACH a la cuenta designada por la Compañía.</p>
+
+    <div class="doc-h1">3. Titularidad del Candidato</div>
+    <p class="doc-body"><b>3.1 Conocimiento previo.</b> Si el Cliente mantuvo conversaciones sustantivas con un Candidato dentro de los doce (12) meses previos a la presentación de la Compañía, deberá notificarlo por escrito dentro de los <span class="ph">${diasNotifPrevia}</span> días hábiles. De lo contrario, se considerará que el Candidato fue presentado por la Compañía.</p>
+    <p class="doc-body"><b>3.2 Ventana de titularidad.</b> La Compañía tendrá derecho al honorario si un Candidato presentado por ella es contratado dentro de los <span class="ph">${mesesPropiedad}</span> meses posteriores a su última presentación.</p>
+    <p class="doc-body"><b>3.3 Referencias a terceros.</b> Si el Cliente refiere a un Candidato presentado por la Compañía a un tercero, y ese tercero lo contrata dentro de los <span class="ph">${mesesPropiedad}</span> meses, el Cliente será responsable del honorario.</p>
+
+    <div class="doc-h1">4. Responsabilidades del Cliente</div>
+    <p class="doc-body">El Cliente se compromete a: brindar feedback oportuno; coordinar entrevistas con rapidez; notificar a la Compañía de inmediato ante cualquier oferta realizada o aceptada; garantizar el cumplimiento de la normativa laboral aplicable; y realizar los controles de antecedentes y debida diligencia que correspondan.</p>
+
+    <div class="doc-h1">5. Confidencialidad</div>
+    <p class="doc-body">Ambas Partes mantendrán confidencial toda información no pública compartida bajo este Contrato, incluida la de los Candidatos, y la usarán exclusivamente con fines de reclutamiento.</p>
+
+    <div class="doc-h1">6. Vigencia y Terminación</div>
+    <p class="doc-body">Cualquiera de las Partes podrá rescindir este Contrato en cualquier momento con <span class="ph">${diasTerminacion}</span> días de preaviso por escrito. La terminación no afecta la obligación de pagar honorarios de Candidatos presentados antes de la terminación. Las notificaciones bajo este Contrato podrán realizarse por correo electrónico a los contactos designados por las Partes, y se considerarán recibidas al momento del envío, salvo prueba en contrario.</p>
+
+    <div class="doc-h1">7. Limitación de Responsabilidad</div>
+    <p class="doc-body">Ninguna de las Partes será responsable por daños indirectos, incidentales o consecuentes. La responsabilidad total de la Compañía no excederá el total de honorarios abonados en los doce (12) meses previos al reclamo.</p>
+
+    <div class="doc-h1">8. Contratista Independiente</div>
+    <p class="doc-body">La Compañía actúa como contratista independiente. Nada de lo aquí establecido crea una sociedad, joint venture o relación laboral entre las Partes.</p>
+
+    <div class="doc-h1">9. Ley Aplicable</div>
+    <p class="doc-body">Este Contrato se regirá por las leyes de <span class="ph">${jurisdiccion}</span>. Cualquier disputa se resolverá exclusivamente en los tribunales de esa jurisdicción.</p>
+
+    <div class="doc-h1">10. Acuerdo Integral</div>
+    <p class="doc-body">Este Contrato constituye el entendimiento íntegro entre las Partes y reemplaza todo acuerdo previo. Las modificaciones deberán hacerse por escrito y ser firmadas por ambas Partes.</p>
+
+    <div class="doc-h1">Firmas</div>
+    <div class="sig-block">
+      <p class="doc-body"><b>La Compañía</b></p>
+      <p class="doc-body">Firma: _______________________________</p>
+      <p class="doc-body text-gray-500">Nombre: Agustín González Benegas — Cargo: Founder/CEO</p>
+      <p class="doc-body">Fecha: _______________________________</p>
+      <p class="doc-body mt-4"><b>El Cliente</b></p>
+      <p class="doc-body">Firma: _______________________________</p>
+      <p class="doc-body text-gray-500">Nombre: ${firmNombre} — Cargo: ${firmCargo}</p>
+      <p class="doc-body">Fecha: _______________________________</p>
+    </div>
+  ` + footer('Contrato de servicio');
+}
+
+function renderPropuestaEn(){
+  const cliente = val('cliente','[CLIENT NAME / COMPANY]');
+  const cargo = val('cargo','[POSITION]');
+  const fee = val('fee','[%FEE]');
+  const feeMinimo = val('feeMinimo','[MINIMUM FEE]');
+  const dias = val('diasPago','[X]');
+  const email = val('email','[email]');
+  const tel = val('telefono','[phone]');
+
+  return header('Recruiting Services Proposal') + `
+    <p class="doc-body"><b>To:</b> ${cliente}</p>
+    <p class="doc-body mb-4"><b>From:</b> Agustín González Benegas — KBGB Recruiting</p>
+
+    <div class="doc-h1">Who we are</div>
+    <p class="doc-body">KBGB Recruiting is a boutique recruiting consultancy focused on two verticals: Growth &amp; Performance Marketing (eCommerce/DTC brands and agencies) and Tech &amp; AI (SaaS and AI companies). Over 10 years of experience running end-to-end hiring processes for startups and established companies worldwide.</p>
+
+    <div class="doc-h1">Service model</div>
+    <ul class="doc-body list-disc pl-5 space-y-1">
+      <li><b>Risk-free:</b> no fee is charged unless the candidate is hired.</li>
+      <li><b>Non-exclusive:</b> you can run the search in parallel with other providers or your internal team.</li>
+      <li><b>Guaranteed:</b> if the hired candidate leaves within the first 60 days, we replace them at no additional cost.</li>
+    </ul>
+
+    <div class="doc-h1">Role to fill</div>
+    <p class="doc-body">${cargo}</p>
+
+    <div class="doc-h1">Fees</div>
+    <p class="doc-body">Fee: <span class="ph">${fee}%</span> of the hired candidate's first monthly salary, with a minimum fee of US$<span class="ph">${feeMinimo}</span>.</p>
+    <p class="doc-body">Payment terms: 100% due once the candidate signs their employment agreement with you, within <span class="ph">${dias}</span> business days.</p>
+
+    <div class="doc-h1">Next steps</div>
+    <ol class="doc-body list-decimal pl-5 space-y-1">
+      <li>Confirm the role brief (job description, salary range, screening criteria).</li>
+      <li>Sign the service agreement.</li>
+      <li>Kick off the search.</li>
+    </ol>
+
+    <p class="doc-body mt-4">Contact: Agustín González Benegas · ${email} · ${tel} · kbgbrecruiting.github.io</p>
+  ` + footer('Commercial proposal');
+}
+
+function renderContratoEn(){
+  const cliente = val('cliente','[CLIENT NAME]');
+  const fecha = val('fecha','[EFFECTIVE DATE]');
+  const clienteDetalle = document.getElementById('clienteDetalle').value.trim();
+  const fee = val('fee','[%FEE]');
+  const feeMinimo = val('feeMinimo','[MINIMUM FEE]');
+  const diasPago = val('diasPago','[X]');
+  const diasNotifPrevia = val('diasNotifPrevia','2');
+  const mesesPropiedad = val('mesesPropiedad','12');
+  const diasTerminacion = val('diasTerminacion','7');
+  const jurisdiccion = val('jurisdiccion','the State of Florida, United States');
+  const firmNombre = val('firmanteNombre','[Name]');
+  const firmCargo = val('firmanteCargo','[Title]');
+  const clienteLine = clienteDetalle
+    ? `KBGB Recruiting; and <span class="ph">${cliente}</span>, ${clienteDetalle} (the "Client").`
+    : `KBGB Recruiting; and <span class="ph">${cliente}</span> (the "Client").`;
+
+  return header('Recruitment Services Agreement') + `
+    <div class="no-print bg-gray-100 text-gray-500 text-xs italic p-3 rounded mb-4">
+      Internal reminder (not printed): this is a reference template. Have it reviewed by a licensed attorney before using it with a real client.
+    </div>
+
+    <p class="doc-body">This Recruitment Services Agreement (the "Agreement") is made and entered into as of <span class="ph">${fecha}</span> ("Effective Date") by and between:</p>
+    <p class="doc-body">${clienteLine}</p>
+    <p class="doc-body">The Company and the Client are each a "Party" and together the "Parties." For purposes of this Agreement, "Affiliate" means any entity that directly or indirectly controls, is controlled by, or is under common control with a Party. In consideration of the mutual covenants set forth below, the Parties agree as follows:</p>
+
+    <div class="doc-h1">1. Engagement of Services</div>
+    <p class="doc-body"><b>1.1 Scope.</b> The Client hereby engages the Company, on a non-exclusive and fully contingent basis, to identify, headhunt, evaluate, and introduce candidates ("Candidates") for employment in the position(s) described by the Client (each a "Search"). The Company accepts the engagement and shall use commercially reasonable efforts to conduct each Search through its internal recruiting team.</p>
+    <p class="doc-body"><b>1.2 No Upfront Fees.</b> The Parties agree that there are no upfront fees. The engagement is entirely performance-based. The Client shall only pay the Company if the Client hires a Candidate introduced by the Company.</p>
+    <p class="doc-body"><b>1.3 Job Description Required.</b> Prior to the commencement of any Search, the Client shall provide a written Job Description including responsibilities, required qualifications, compensation range, reporting line, work expectations, and other relevant details. The Company's obligation to perform a Search begins only upon receipt of the Job Description.</p>
+    <p class="doc-body"><b>1.4 Candidate Screening &amp; Presentation.</b> The Company will headhunt Candidates matching the Client's requirements using its internal recruiting team, interview and vet them, and present suitable Candidates to the Client. Final interviews, due diligence, reference checks, background checks, and hiring decisions remain the sole responsibility of the Client.</p>
+
+    <div class="doc-h1">2. Placement Fee</div>
+    <p class="doc-body"><b>2.1 Fee Amount.</b> For each Candidate hired by the Client (or any Affiliate of the Client) as a result of the Company's introduction, the Client shall pay the Company a placement fee equal to <span class="ph">${fee}%</span> of the Candidate's first-monthly salary. There shall be a minimum fee of US$<span class="ph">${feeMinimo}</span> per hire. If the role is a performance or commission based role, the OTE (on target earnings) presented to the candidate in the hiring process will be used as the compensation base.</p>
+    <p class="doc-body"><b>2.2 Trigger &amp; Due Date.</b> The Placement Fee becomes due immediately upon the Candidate signing an employment agreement or other binding engagement with the Client ("Signature Date"). Full payment shall be remitted within <span class="ph">${diasPago}</span> business days of the Signature Date.</p>
+    <p class="doc-body"><b>2.3 No Hire, No Fee.</b> If the Client does not hire any Candidate introduced by the Company, no fee shall be owed.</p>
+    <p class="doc-body"><b>2.4 Payment Method.</b> Payment shall be made via wire transfer or ACH to the Company's designated account.</p>
+
+    <div class="doc-h1">3. Candidate Ownership</div>
+    <p class="doc-body"><b>3.1 Prior Knowledge.</b> If the Client has had substantive discussions with a Candidate within twelve (12) months prior to the Company's introduction, the Client must notify the Company in writing within <span class="ph">${diasNotifPrevia}</span> business days. Otherwise, the Candidate shall be deemed introduced by the Company.</p>
+    <p class="doc-body"><b>3.2 Ownership Window.</b> The Company shall be entitled to the Placement Fee if a Candidate introduced by the Company is hired within <span class="ph">${mesesPropiedad}</span> months of the most recent submission of that Candidate.</p>
+    <p class="doc-body"><b>3.3 Third-Party Referrals.</b> If the Client refers a Candidate introduced by the Company to a third party and that third party hires the Candidate within <span class="ph">${mesesPropiedad}</span> months, the Client shall be responsible for the Placement Fee.</p>
+
+    <div class="doc-h1">4. Client Responsibilities</div>
+    <p class="doc-body">The Client agrees to: provide timely feedback; schedule interviews promptly; notify the Company immediately of any offer made or accepted; ensure compliance with all employment laws; and conduct any required background checks and due diligence.</p>
+
+    <div class="doc-h1">5. Confidentiality</div>
+    <p class="doc-body">Both Parties agree to keep confidential all non-public information shared under this Agreement, including Candidate information, and use it solely for recruitment purposes.</p>
+
+    <div class="doc-h1">6. Term &amp; Termination</div>
+    <p class="doc-body">Either Party may terminate this Agreement at any time upon <span class="ph">${diasTerminacion}</span> days' written notice. Termination does not affect the Client's obligation to pay any Placement Fees for Candidates introduced prior to termination. Notices under this Agreement may be delivered by email to the Parties' designated contacts and will be deemed received upon sending, absent evidence to the contrary.</p>
+
+    <div class="doc-h1">7. Limitation of Liability</div>
+    <p class="doc-body">In no event shall either Party be liable for indirect, incidental, or consequential damages. The Company's total liability shall not exceed the total Placement Fees paid in the twelve (12) months preceding the claim.</p>
+
+    <div class="doc-h1">8. Independent Contractor</div>
+    <p class="doc-body">The Company acts as an independent contractor. Nothing herein creates a partnership, joint venture, or employment relationship between the Parties.</p>
+
+    <div class="doc-h1">9. Governing Law</div>
+    <p class="doc-body">This Agreement shall be governed by the laws of <span class="ph">${jurisdiccion}</span>. Any disputes shall be resolved exclusively in the courts of that jurisdiction.</p>
+
+    <div class="doc-h1">10. Entire Agreement</div>
+    <p class="doc-body">This Agreement constitutes the entire understanding between the Parties and supersedes all prior agreements. Amendments must be in writing and signed by both Parties.</p>
+
+    <div class="doc-h1">Signatures</div>
+    <div class="sig-block">
+      <p class="doc-body"><b>The Company</b></p>
+      <p class="doc-body">Signature: _______________________________</p>
+      <p class="doc-body text-gray-500">Name: Agustín González Benegas — Title: Founder/CEO</p>
+      <p class="doc-body">Date: _______________________________</p>
+      <p class="doc-body mt-4"><b>The Client</b></p>
+      <p class="doc-body">Signature: _______________________________</p>
+      <p class="doc-body text-gray-500">Name: ${firmNombre} — Title: ${firmCargo}</p>
+      <p class="doc-body">Date: _______________________________</p>
+    </div>
+  ` + footer('Service agreement');
+}
+
+function render(){
+  let html;
+  if(currentLang === 'es'){
+    html = currentDoc === 'propuesta' ? renderPropuesta() : renderContrato();
+  } else {
+    html = currentDoc === 'propuesta' ? renderPropuestaEn() : renderContratoEn();
+  }
+  document.getElementById('preview').innerHTML = html;
+  document.getElementById('previewPrint').innerHTML = html;
+}
+
+document.getElementById('fecha').value = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'long', year:'numeric' });
+render();
+</script>
+</body>
+</html>
