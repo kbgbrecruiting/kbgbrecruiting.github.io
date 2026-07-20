@@ -303,12 +303,11 @@ function renderLanding() {
           <!-- RIGHT: diferenciales con íconos -->
           <div class="grid grid-cols-1 gap-3" style="background:rgba(6,37,89,0.7);border-radius:12px;padding:16px;border:1px solid rgba(74,158,255,0.15)">
             ${[
-              { icon: 'fa-shield-halved',    label: isEN?'100% Risk-Free':'100% a Resultado',      desc: isEN?'You only pay when you hire. Zero upfront fees, ever.':'Solo pagás si contratás. Sin costos iniciales, nunca.' },
-              { icon: 'fa-lock-open',        label: isEN?'No Exclusivity':'Sin Exclusividad',       desc: isEN?'Work with us and other agencies at the same time. Multiple searches in parallel.':'Trabajá con nosotros y otras agencias a la vez. Varias búsquedas en simultáneo.' },
-              { icon: 'fa-rocket',           label: isEN?'Faster Hiring':'Contratación Ágil',       desc: isEN?'First candidates in 2–4 business days. Faster than any traditional agency.':'Primeros candidatos en 2 a 4 días hábiles. Más rápido que cualquier agencia tradicional.' },
-              { icon: 'fa-handshake',        label: isEN?'Personalized Approach':'Servicio Personalizado', desc: isEN?'Every search is led by a senior recruiter. More personalized. Better results.':'Cada búsqueda la lleva un recruiter senior. Más personalizado. Mejores resultados.' },
-              { icon: 'fa-dollar-sign',      label: isEN?'Lower Fees':'Honorarios Más Bajos',       desc: isEN?'Significantly below traditional agency rates — without sacrificing quality.':'Muy por debajo de las agencias tradicionales, sin sacrificar calidad.' },
-              { icon: 'fa-globe',            label: isEN?'Global Reach':'Alcance Global',            desc: isEN?'We place talent across Latin America, US, South Africa and worldwide.':'Colocamos talento en Latinoamérica, EEUU, Sudáfrica y todo el mundo.' },
+              { icon: 'fa-shield-halved',    label: isEN?'100% Risk-Free':'100% a Resultado',            desc: isEN?'No hire, no fee. You only pay if you successfully hire a candidate.':'Solo pagás si encontramos y contratás al candidato. Sin costos iniciales.' },
+              { icon: 'fa-dollar-sign',      label: isEN?'Lower Fees':'Tarifas más competitivas',        desc: isEN?'Premium recruiting at a fraction of traditional agency fees.':'Reclutamiento premium a un costo mucho más bajo que las agencias tradicionales.' },
+              { icon: 'fa-rocket',           label: isEN?'Faster Hiring':'¡MUY rápido!',                 desc: isEN?'Meet your first qualified candidates within 2–4 business days.':'Presentación de candidatos en 2 a 4 días hábiles.' },
+              { icon: 'fa-medal',            label: isEN?'Guarantee':'Con garantía',                     desc: isEN?"If a candidate doesn't work out within the first 60 days, we'll find you a replacement at no additional cost.":'Si el candidato no resulta ser el indicado durante los primeros 60 días, encontraremos un reemplazo sin costo adicional.' },
+              { icon: 'fa-handshake',        label: isEN?'Personalized Approach':'Servicio Personalizado', desc: isEN?'Every search is handled by a senior recruiter from start to finish.':'Cada búsqueda es liderada por un recruiter senior, asegurándose de una mejor experiencia para todos.' },
             ].map(d=>`
             <div style="border:1px solid rgba(74,158,255,0.35);border-radius:8px;background:rgba(10,61,145,0.3)" class="flex items-center gap-4 px-5 py-4">
               <div style="background:rgba(74,158,255,0.15);border-radius:8px;padding:10px;color:#4a9eff;flex-shrink:0;width:42px;height:42px;display:flex;align-items:center;justify-content:center"><i class="fa-solid ${d.icon}" style="font-size:18px"></i></div>
@@ -347,15 +346,83 @@ function renderLanding() {
             <h3 class="text-white text-2xl font-black mb-1">Agustín González Benegas</h3>
             <p class="text-sm mb-5" style="color:#4a9eff">Founder · Senior Recruiter · Tech & Performance Marketing</p>
             <p class="text-sm leading-relaxed mb-4" style="color:#a8c5e8">${isEN
-              ? 'Senior Talent Acquisition professional with a demonstrated history recruiting top talent from all around the world. Full-cycle recruiting that meets and exceeds targeted hiring goals.'
-              : 'Profesional de Talent Acquisition con historial comprobado en la búsqueda de talento de alto nivel a nivel global. Recruiting end-to-end que supera los objetivos de contratación.'
+              ? 'Agustin is a Senior Recruiter with 10+ years of experience helping companies build exceptional Tech, Growth Marketing, and eCommerce teams.'
+              : 'Agustín es un Senior Recruiter con más de 10 años de experiencia ayudando a empresas a construir equipos excepcionales de Tech, Growth Marketing y eCommerce.'
             }</p>
             <p class="text-sm leading-relaxed mb-6" style="color:#a8c5e8">${isEN
-              ? 'From start-ups to established companies — building relationships that create win-wins for all involved. Specializing in Tech & Performance Marketing recruitment.'
-              : 'Desde startups hasta empresas consolidadas — construyendo relaciones que generan resultados para todos. Especialista en Tech & Performance Marketing.'
+              ? 'Before founding KBGB Recruiting, he led Talent Acquisition for a Performance Marketing agency working exclusively with DTC/eCommerce brands and also for a Tech/AI startup. Having recruited these roles from the inside, he understands exactly what great talent looks like and what it takes to build teams that scale.'
+              : 'Antes de fundar KBGB Recruiting, lideró la captación de talento en una agencia de Performance Marketing que trabajaba exclusivamente con marcas DTC/eCommerce y también en una startup de Tech/AI. Al haber reclutado estos roles desde adentro, entiende exactamente cómo luce el talento de alto nivel y lo que se necesita para construir equipos que escalen.'
             }</p>
             <a href="https://www.linkedin.com/in/agustin-gonzalez-benegas-65a9a5173" target="_blank" class="inline-block text-xs font-semibold border border-white/20 px-4 py-2 rounded hover:text-white hover:border-white/50 transition" style="color:#a8c5e8">LinkedIn →</a>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ROLES WE'VE SUCCESSFULLY FILLED -->
+    <section style="background:transparent;border-top:1px solid rgba(255,255,255,0.1)" class="px-6 py-16">
+      <div class="max-w-5xl mx-auto">
+        <p class="text-xs font-bold uppercase tracking-widest mb-3 text-center" style="color:#4a9eff">${isEN?'ROLES WE\'VE SUCCESSFULLY FILLED':'ROLES QUE HEMOS CUBIERTO CON ÉXITO'}</p>
+        <p class="text-center text-sm mb-10" style="color:#a8c5e8">${isEN?'A sample of positions we\'ve placed across our two core verticals.':'Una muestra de los puestos que hemos cubierto en nuestras dos verticales.'}</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Growth -->
+          <div style="background:rgba(6,37,89,0.7);border:1px solid rgba(74,158,255,0.2);border-radius:12px;padding:24px">
+            <div class="flex items-center gap-3 mb-5">
+              <div style="background:rgba(74,158,255,0.15);border-radius:8px;padding:8px;color:#4a9eff;width:36px;height:36px;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-chart-line" style="font-size:16px"></i></div>
+              <div>
+                <p class="text-white font-bold text-sm">${isEN?'Growth Teams':'Equipos de Growth'}</p>
+                <p class="text-xs" style="color:#a8c5e8">${isEN?'For DTC/eCommerce brands & agencies':'Para marcas y agencias DTC/eCommerce'}</p>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              ${['Media Buyers','Creative Strategists','Head of CS','Direct Response Video Editors','Head of Growth','Graphic Designers','Email Marketers','TikTok Shop Ops Managers','Account Managers'].map(r=>`
+              <span style="background:rgba(37,99,235,0.2);border:1px solid rgba(74,158,255,0.3);border-radius:20px;padding:4px 12px;color:#a8c5e8;font-size:12px">${r}</span>`).join('')}
+              <span style="background:rgba(37,99,235,0.1);border:1px solid rgba(74,158,255,0.15);border-radius:20px;padding:4px 12px;color:#6b9fd4;font-size:12px">${isEN?'& more!':'¡y más!'}</span>
+            </div>
+          </div>
+          <!-- Tech/AI -->
+          <div style="background:rgba(6,37,89,0.7);border:1px solid rgba(74,158,255,0.2);border-radius:12px;padding:24px">
+            <div class="flex items-center gap-3 mb-5">
+              <div style="background:rgba(74,158,255,0.15);border-radius:8px;padding:8px;color:#4a9eff;width:36px;height:36px;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-microchip" style="font-size:16px"></i></div>
+              <div>
+                <p class="text-white font-bold text-sm">${isEN?'Technology / AI Teams':'Equipos de Tech / AI'}</p>
+                <p class="text-xs" style="color:#a8c5e8">${isEN?'For SaaS & AI companies':'Para empresas SaaS y de IA'}</p>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              ${['Software Engineers','AI/ML Engineers','Data Analytics Engineers','QA/SDET','AI Platform Engineers','Product Managers','Project Managers'].map(r=>`
+              <span style="background:rgba(37,99,235,0.2);border:1px solid rgba(74,158,255,0.3);border-radius:20px;padding:4px 12px;color:#a8c5e8;font-size:12px">${r}</span>`).join('')}
+              <span style="background:rgba(37,99,235,0.1);border:1px solid rgba(74,158,255,0.15);border-radius:20px;padding:4px 12px;color:#6b9fd4;font-size:12px">${isEN?'& more!':'¡y más!'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMPANIES WE'VE PARTNERED WITH -->
+    <section style="background:transparent;border-top:1px solid rgba(255,255,255,0.1)" class="px-6 py-16">
+      <div class="max-w-5xl mx-auto">
+        <p class="text-xs font-bold uppercase tracking-widest mb-3 text-center" style="color:#4a9eff">${isEN?'COMPANIES WE\'VE PARTNERED WITH':'EMPRESAS CON LAS QUE TRABAJAMOS'}</p>
+        <p class="text-center text-sm mb-10" style="color:#a8c5e8">${isEN?'Trusted by startups and established companies across the globe.':'La confianza de startups y empresas consolidadas en todo el mundo.'}</p>
+
+        <!-- Growth -->
+        <p class="text-xs font-semibold uppercase tracking-widest mb-4 text-center" style="color:#6b9fd4">${isEN?'Growth & eCommerce':'Growth & eCommerce'}</p>
+        <div class="flex flex-wrap justify-center items-center gap-6 mb-10">
+          ${['readyset.co','wearelinear.com','titanagency.co.uk','konsortsocial.com','inbeat.agency','wellcopy.net','newsan.com.ar'].map(domain=>`
+          <a href="https://${domain}" target="_blank" rel="noopener" title="${domain}" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:14px 20px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;width:130px;height:64px" onmouseover="this.style.background='rgba(74,158,255,0.12)';this.style.borderColor='rgba(74,158,255,0.4)'" onmouseout="this.style.background='rgba(255,255,255,0.07)';this.style.borderColor='rgba(255,255,255,0.12)'">
+            <img src="https://logo.clearbit.com/${domain}" alt="${domain}" style="max-width:90px;max-height:36px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.75" onerror="this.style.display='none';this.parentNode.querySelector('span').style.display='block'">
+            <span style="display:none;color:#a8c5e8;font-size:11px;font-weight:600;text-align:center">${domain.replace('www.','')}</span>
+          </a>`).join('')}
+        </div>
+
+        <!-- Tech/AI -->
+        <p class="text-xs font-semibold uppercase tracking-widest mb-4 text-center" style="color:#6b9fd4">${isEN?'Technology & AI':'Technology & AI'}</p>
+        <div class="flex flex-wrap justify-center items-center gap-6">
+          ${['airpost.ai','pulpos.com','localytics.com','growketing.com','assistedlivingmagazine.com'].map(domain=>`
+          <a href="https://${domain}" target="_blank" rel="noopener" title="${domain}" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:14px 20px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;width:130px;height:64px" onmouseover="this.style.background='rgba(74,158,255,0.12)';this.style.borderColor='rgba(74,158,255,0.4)'" onmouseout="this.style.background='rgba(255,255,255,0.07)';this.style.borderColor='rgba(255,255,255,0.12)'">
+            <img src="https://logo.clearbit.com/${domain}" alt="${domain}" style="max-width:90px;max-height:36px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.75" onerror="this.style.display='none';this.parentNode.querySelector('span').style.display='block'">
+            <span style="display:none;color:#a8c5e8;font-size:11px;font-weight:600;text-align:center">${domain.replace('www.','')}</span>
+          </a>`).join('')}
         </div>
       </div>
     </section>
