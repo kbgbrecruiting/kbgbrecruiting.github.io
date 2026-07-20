@@ -412,13 +412,13 @@ function renderLanding() {
         <p class="text-xs font-semibold uppercase tracking-widest mb-4 text-center" style="color:#6b9fd4">${isEN?'Growth & eCommerce':'Growth & eCommerce'}</p>
         <div class="flex flex-wrap justify-center items-center gap-6 mb-10">
           ${[
-            { file:'logos/transparent_ready_set_logo.png',    url:'https://www.readyset.co',         name:'Ready Set' },
-            { file:'logos/transparent_linear_logo.png',        url:'https://www.wearelinear.com',     name:'Linear' },
-            { file:'logos/transparent_titan_agency_logo.png',  url:'https://titanagency.co.uk',       name:'Titan Agency' },
-            { file:'logos/transparent_Konsort_logo.png',       url:'https://www.konsortsocial.com',   name:'Konsort Social' },
-            { file:'logos/transparent_inbeat_agency_logo.png', url:'https://inbeat.agency',           name:'Inbeat' },
-            { file:'logos/transparent_well_copy_logo.png',     url:'https://www.wellcopy.net',        name:'Wellcopy' },
-            { file:'logos/transparent_newsan_logo.png',        url:'https://www.newsan.com.ar',       name:'Newsan' },
+            { file:'logos/transparent_ready_set_logo.png',    url:'https://www.readyset.co',       name:'Ready Set' },
+            { file:'logos/transparent_linear_logo.png',        url:'https://www.wearelinear.com',   name:'Linear' },
+            { file:'logos/transparent_titan_agency_logo.png',  url:'https://titanagency.co.uk',     name:'Titan Agency' },
+            { file:'logos/transparent_Konsort_logo.png',       url:'https://www.konsortsocial.com', name:'Konsort Social' },
+            { file:'logos/transparent_inbeat_agency_logo.png', url:'https://inbeat.agency',         name:'Inbeat' },
+            { file:'logos/transparent_well_copy_logo.png',     url:'https://www.wellcopy.net',      name:'Wellcopy' },
+            { file:'logos/transparent_newsan_logo.png',        url:'https://www.newsan.com.ar',     name:'Newsan' },
           ].map(c=>`
           <a href="${c.url}" target="_blank" rel="noopener" title="${c.name}" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;width:130px;height:64px" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.borderColor='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.borderColor='rgba(255,255,255,0.12)'">
             <img src="${c.file}" alt="${c.name}" style="max-width:100px;max-height:44px;object-fit:contain">
@@ -429,11 +429,11 @@ function renderLanding() {
         <p class="text-xs font-semibold uppercase tracking-widest mb-4 text-center" style="color:#6b9fd4">${isEN?'Technology & AI':'Technology & AI'}</p>
         <div class="flex flex-wrap justify-center items-center gap-6">
           ${[
-            { file:'logos/transparent_airpost_ai_logo.png',              url:'https://www.airpost.ai',                 name:'Airpost' },
-            { file:'logos/transparent_pulos_logo.png',                   url:'https://pulpos.com',                     name:'Pulpos' },
-            { file:'logos/transparent_localytics_logo.png',              url:'https://localytics.com',                 name:'Localytics' },
-            { file:'logos/transparent_growketing_logo.png',              url:'https://www.growketing.com',             name:'Growketing' },
-            { file:'logos/transparent_assistedlivingmagazine_logo.png',  url:'https://assistedlivingmagazine.com',     name:'Assisted Living' },
+            { file:'logos/transparent_airpost_ai_logo.png',             url:'https://www.airpost.ai',            name:'Airpost' },
+            { file:'logos/transparent_pulos_logo.png',                  url:'https://pulpos.com',                name:'Pulpos' },
+            { file:'logos/transparent_localytics_logo.png',             url:'https://localytics.com',            name:'Localytics' },
+            { file:'logos/transparent_growketing_logo.png',             url:'https://www.growketing.com',        name:'Growketing' },
+            { file:'logos/transparent_assistedlivingmagazine_logo.png', url:'https://assistedlivingmagazine.com',name:'Assisted Living' },
           ].map(c=>`
           <a href="${c.url}" target="_blank" rel="noopener" title="${c.name}" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;width:130px;height:64px" onmouseover="this.style.background='rgba(255,255,255,0.1)';this.style.borderColor='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.borderColor='rgba(255,255,255,0.12)'">
             <img src="${c.file}" alt="${c.name}" style="max-width:100px;max-height:44px;object-fit:contain">
