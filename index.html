@@ -166,7 +166,11 @@ async function loadSection(section) {
     App.data.leads = rd.leads || rd.data?.leads || [];
     if (!App.data.busquedaActiva && App.data.busquedas.length) App.data.busquedaActiva=App.data.busquedas[0].id;
   } catch(e) { showToast('Error cargando datos: '+e.message,'error'); }
-  App.loading=false; render();
+  App.loading=false;
+  try { render(); } catch(e) {
+    console.error('Render error:', e);
+    document.getElementById('root').innerHTML = `<div style="padding:2rem;color:red;font-family:monospace">Error de render: ${e.message}<br><pre>${e.stack}</pre></div>`;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
