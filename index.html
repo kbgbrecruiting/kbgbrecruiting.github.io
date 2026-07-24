@@ -1760,7 +1760,7 @@ async function handleJDPdfFile(file, bid) {
     });
     const r=await apiPost({action:'guardar_jd_pdf',data:{filename:file.name,base64data:base64,busqueda_id:bid}});
     if(r.status!=='ok') throw new Error(r.message||'Error al subir PDF');
-    const url=r.data.url;
+    const url=r.url||r.data?.url;
     // Actualizar en memoria y en el textarea de texto
     const b=App.data.busquedas.find(x=>x.id===bid);
     if(b){
