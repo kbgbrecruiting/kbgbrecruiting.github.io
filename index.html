@@ -1601,7 +1601,7 @@ async function actualizarBriefingConFeedback(bid) {
       red_flags: JSON.stringify(rf), criterio_si: criterioSi, feedback,
     }});
     if (r.status !== 'ok') throw new Error(r.message||'Error');
-    const p = r.data;
+    const p = r.parsed||r;
     if (p.must_haves) f.querySelector('[name="must_haves"]').value = p.must_haves.join('\n');
     if (p.nice_to_haves) f.querySelector('[name="nice_to_haves"]').value = p.nice_to_haves.join('\n');
     if (p.red_flags) f.querySelector('[name="red_flags"]').value = p.red_flags.join('\n');
@@ -1647,7 +1647,7 @@ async function sugerirPreguntasFiltro(bid) {
   try {
     const r = await apiPost({ action:'sugerir_preguntas_filtro', data:{ busqueda_id: bid } });
     if (r.status !== 'ok') throw new Error(r.message||'Error');
-    const preguntas = r.data?.preguntas || [];
+    const preguntas = r.preguntas||r.data?.preguntas || [];
     const ta = document.getElementById('pfTextarea');
     if (ta) ta.value = preguntas.join('\n');
     showToast('Preguntas sugeridas — editá las que quieras ✓');
@@ -1840,7 +1840,7 @@ async function handleJDFile(file) {
     const r = await apiPost({ action: 'parsear_jd', data: { jd_text: text, jd_texto: text } });
     if (r.status !== 'ok') throw new Error(r.message || 'Error al parsear');
 
-    const p = r.data;
+    const p = r.parsed||r;
 
     // Pre-llenar campos del formulario
     const f = document.getElementById('busquedaForm');
@@ -2314,7 +2314,7 @@ async function handleCVFile(file, formId) {
     if(r.status!=='ok') throw new Error(r.message||'Error al procesar');
 
 
-    const {url,cv_score,cv_score_justificacion,cv_score_pros,cv_score_contras,must_haves_evaluados,...p}=r.data;
+    const {url,cv_score,cv_score_justificacion,cv_score_pros,cv_score_contras,must_haves_evaluados,...p}=r;
     App._parsedCV=p;
     App._cvPdfUrl=url;
     App._cvScore={score:cv_score,justificacion:cv_score_justificacion,pros:cv_score_pros,contras:cv_score_contras,evaluados:must_haves_evaluados};
@@ -2355,7 +2355,7 @@ async function abrirFichaEntrevista(candidatoId) {
       dia_a_dia: b.dia_a_dia || '',
     }});
     if (r.status !== 'ok') throw new Error(r.message);
-    App.modal.payload = { candidatoId, estado: 'ok', ficha: r.data };
+    App.modal.payload = { candidatoId, estado: 'ok', ficha: r.ficha||r };
   } catch(err) {
     App.modal.payload = { candidatoId, estado: 'error', error: err.message };
   }
@@ -2453,7 +2453,7 @@ async function generarCoaching(id) {
       notas: c.notas||'', feedback,
     }});
     if (r.status !== 'ok') throw new Error(r.message||'Error');
-    const mensaje = r.data.mensaje || '';
+    const mensaje = r.mensaje||r.data?.mensaje || '';
     // Guardar en el candidato para que no se pierda
     await apiPost({ action: 'editar_candidato', data: { id, coaching_feedback: feedback, coaching_mensaje: mensaje } });
     c.coaching_feedback = feedback; c.coaching_mensaje = mensaje;
@@ -2766,7 +2766,7 @@ async function generarResumenPipeline(bid) {
     el.innerHTML = `<p class="text-red-500 text-sm p-4">${r.message || 'Error generando resumen'}</p>`;
     return;
   }
-  const texto = r.data.resumen || '';
+  const texto = r.resumen||r.data?.resumen || '';
   el.innerHTML = `
     <div class="space-y-4">
       <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
@@ -2845,7 +2845,7 @@ async function generarSourcingIA(bid) {
     document.getElementById('sourcingContent').innerHTML=`<p class="text-red-500 text-sm p-4">${r.message||'Error generando sourcing'}</p>`;
     return;
   }
-  const s=r.data;
+  const s=r.resultado||r.sourcing||r;
   // Guardar en sheet y en memoria
   b.sourcing_cache = JSON.stringify(s);
   apiPost({action:'editar_busqueda', data:{id: bid, sourcing_cache: b.sourcing_cache}});
@@ -3002,14 +3002,13 @@ async function enviarMensajeSourcing(bid) {
 
     let reply;
     if (r.status === 'ok') {
-      if (typeof r.data === 'string') reply = r.data;
-      else if (typeof r.data?.respuesta === 'string' && r.data.respuesta.trim()) reply = r.data.respuesta;
-      else if (r.data?.respuesta) reply = JSON.stringify(r.data.respuesta, null, 2);
+      if (typeof r.respuesta === 'string' && r.respuesta.trim()) reply = r.respuesta;
+      else if (r.respuesta) reply = JSON.stringify(r.respuesta, null, 2);
       else reply = 'Listo, actualicé lo que pediste.';
     } else {
       reply = 'Error: ' + (r.message || 'no se pudo responder');
     }
-    const updates = (r.status === 'ok' && r.data?.updates) ? r.data.updates : {};
+    const updates = r.updates || {};
     App._sourcingCtx.history.push({ role: 'assistant', content: String(reply) });
 
     document.getElementById('sourcingTyping')?.remove();
@@ -3082,8 +3081,8 @@ async function toggleSourcingRecording(bid) {
       if (input) { input.value = '🎤 Transcribiendo...'; input.disabled = true; }
       try {
         const r = await apiPost({ action: 'sourcing_transcribir', data: { audio: base64 } });
-        if (r.status === 'ok' && r.data.texto) {
-          input.value = r.data.texto;
+        if (r.status === 'ok' && r.texto||r.data?.texto) {
+          input.value = r.texto||r.data?.texto;
           input.disabled = false;
           enviarMensajeSourcing(bid);
         } else {
@@ -3197,7 +3196,7 @@ async function descargarNotasCandidato(id) {
       resumen_ejecutivo:c.resumen_ejecutivo||'',
       cv_score_pros:c.cv_score_pros||'', notas:c.notas||''
     }});
-    if(r.status==='ok') resumen=r.data.resumen||'';
+    if(r.status==='ok') resumen=r.resumen||r.data?.resumen||'';
   } catch(e) {}
   const fecha=new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'});
   const expStr = c.expectativa_salarial ? String(c.expectativa_salarial) : '';
@@ -3427,7 +3426,7 @@ async function enviarMensajeScore(id) {
       return;
     }
 
-    const d = r.data||{};
+    const d = r;
     respuesta = d.respuesta || 'Listo.';
     appendScoreChatMsg(id,'ia', respuesta);
     state.history.push({role:'assistant', content:respuesta});
@@ -3491,9 +3490,9 @@ async function toggleScoreMic(id) {
         const b64 = reader.result.split(',')[1];
         showToast('Transcribiendo...');
         const r = await apiPost({action:'sourcing_transcribir',data:{audio:b64}});
-        if(r.status==='ok'&&r.data?.texto) {
+        if(r.status==='ok'&&(r.texto||r.data?.texto)) {
           const inp = document.getElementById('scoreChatInput_'+id);
-          if(inp) inp.value=r.data.texto;
+          if(inp) inp.value=r.texto||r.data?.texto;
         }
       };
       reader.readAsDataURL(blob);
