@@ -906,9 +906,9 @@ function renderPipeline() {
 }
 
 function renderBriefingPanel(b) {
-  const mustHaves=tryJSON(b.must_haves,[]);
-  const niceToHaves=tryJSON(b.nice_to_haves,[]);
-  const redFlags=tryJSON(b.red_flags,[]);
+  const mustHaves=Array.isArray(tryJSON(b.must_haves,[]))?tryJSON(b.must_haves,[]):[];
+  const niceToHaves=Array.isArray(tryJSON(b.nice_to_haves,[]))?tryJSON(b.nice_to_haves,[]):[];
+  const redFlags=Array.isArray(tryJSON(b.red_flags,[]))?tryJSON(b.red_flags,[]):[];
   const hasBriefing=mustHaves.length||b.contexto||b.dia_a_dia;
 
   return `
