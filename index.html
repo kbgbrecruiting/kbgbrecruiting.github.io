@@ -3577,7 +3577,7 @@ async function procesarNotasIA(id) {
     }});
 
     if(r.status!=='ok') { showToast(r.message||'Error al procesar','error'); return; }
-    const d = r.data;
+    const d = r;
 
     // Actualizar candidato en memoria
     if(d.nuevo_score != null) c.cv_score = d.nuevo_score;
@@ -3892,7 +3892,7 @@ async function leadUploadJD(input) {
     const r = await apiPostPublic({ action: 'parsear_jd_publico', data: { filename: file.name, base64data: base64 } });
     if (r.status !== 'ok') throw new Error(r.message || 'Error');
 
-    const p = r.data;
+    const p = r.parsed||r;
     if (textoEl) textoEl.value = p.jd_texto || '';
 
     // Solo llenar empresa y puesto
