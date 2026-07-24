@@ -94,7 +94,7 @@ async function apiPostPublic(body) {
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════
-function tryJSON(str, fallback) { try { const r=JSON.parse(str); return r??fallback; } catch { return fallback; } }
+function tryJSON(str, fallback) { try { const r=JSON.parse(str); if(r===null||r===undefined) return fallback; if(Array.isArray(fallback)&&!Array.isArray(r)) return fallback; return r; } catch { return fallback; } }
 function normalizeWA(raw) {
   const n = String(raw||'').replace(/\D/g,'');
   if (!n || n.length < 6) return '';
