@@ -672,7 +672,7 @@ function renderDashboard() {
       <div class="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
         <div class="flex items-center gap-3">
           <span class="text-lg">⏳</span>
-          <div><p class="text-sm font-semibold text-red-900">Garantía vence en ${b.dias_restantes} día${b.dias_restantes!==1?'s':''}</p><p class="text-xs text-red-700">${b.candidato_placement||'—'} · ${b.cliente} · ${b.puesto}</p></div>
+          <div><p class="text-sm font-semibold text-red-900">Garantía vence en ${b.dias_restantes} día${b.dias_restantes!==1?'s':''}</p><p class="text-xs text-red-700">${b.candidato_placement||'—'} · ${b.cliente||''} · ${b.puesto||''}</p></div>
         </div>
       </div>`).join('')}
 
