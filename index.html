@@ -177,18 +177,23 @@ async function loadSection(section) {
 // RENDER ROOT
 // ═══════════════════════════════════════════════════════════════
 function render() {
-  let html='';
-  if (App.toast) {
-    const tc=App.toast.type==='error'?'bg-red-600':'bg-gray-900';
-    html+=`<div class="fixed top-4 right-4 z-50 ${tc} text-white px-4 py-3 rounded-lg shadow-lg text-sm fade-in max-w-xs">${App.toast.msg}</div>`;
+  try {
+    let html='';
+    if (App.toast) {
+      const tc=App.toast.type==='error'?'bg-red-600':'bg-gray-900';
+      html+=`<div class="fixed top-4 right-4 z-50 ${tc} text-white px-4 py-3 rounded-lg shadow-lg text-sm fade-in max-w-xs">${App.toast.msg}</div>`;
+    }
+    if (App.modal) html+=renderModal();
+    if (App.view==='landing') html+=renderLanding();
+    else if (App.view==='login') html+=renderLogin();
+    else if (App.view==='panel') html+=renderPanel();
+    else if (App.view==='apply') html+=renderApply();
+    document.getElementById('root').innerHTML=html;
+    attachEvents();
+  } catch(e) {
+    console.error('Render crash:', e);
+    document.getElementById('root').innerHTML = `<div style="padding:2rem;color:red;font-family:monospace;white-space:pre-wrap">Error: ${e.message}\n\n${e.stack}</div>`;
   }
-  if (App.modal) html+=renderModal();
-  if (App.view==='landing') html+=renderLanding();
-  else if (App.view==='login') html+=renderLogin();
-  else if (App.view==='panel') html+=renderPanel();
-  else if (App.view==='apply') html+=renderApply();
-  document.getElementById('root').innerHTML=html;
-  attachEvents();
 }
 
 // ═══════════════════════════════════════════════════════════════
